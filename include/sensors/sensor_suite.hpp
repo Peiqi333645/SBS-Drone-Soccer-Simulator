@@ -3,6 +3,7 @@
 #include "aero/atmosphere.hpp"
 #include <optional>
 #include <cmath>
+#include <cstdint>
 
 namespace dronesim {
 
@@ -63,7 +64,9 @@ public:
         double bias_drift{0.0001};    // bias random walk rate
     };
 
-    explicit IMU(Params p = {}) noexcept
+    IMU() noexcept : IMU(Params{}) {}
+
+    explicit IMU(Params p) noexcept
         : _p(p)
         , _an_x(p.accel_noise), _an_y(p.accel_noise), _an_z(p.accel_noise)
         , _gn_x(p.gyro_noise),  _gn_y(p.gyro_noise),  _gn_z(p.gyro_noise)
@@ -168,7 +171,9 @@ public:
         double update_rate{10.0}; // Hz
     };
 
-    explicit GPS(Params p = {}) noexcept
+    GPS() noexcept : GPS(Params{}) {}
+
+    explicit GPS(Params p) noexcept
         : _p(p)
         , _nh(p.pos_noise_h), _nv(p.pos_noise_v), _nvel(p.vel_noise)
     {}

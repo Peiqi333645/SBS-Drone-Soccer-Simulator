@@ -28,7 +28,9 @@ public:
         double alt_msl_m{584.0};
     };
 
-    explicit SITLStateAdapter(OriginConfig origin = {}) noexcept
+    SITLStateAdapter() noexcept : SITLStateAdapter(OriginConfig{}) {}
+
+    explicit SITLStateAdapter(OriginConfig origin) noexcept
         : _origin(origin) {}
 
     // -----------------------------------------------------------------------

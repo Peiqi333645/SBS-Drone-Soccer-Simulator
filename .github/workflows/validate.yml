@@ -1,0 +1,31 @@
+name: Validate Drone Soccer Project
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-extension:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: linux-x86_64
+          - os: windows-latest
+            artifact: windows-x86_64
+          - os: macos-14
+            artifact: macos-universal
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build physics extension
+        run: cmake --build build --config Release --parallel 2
+      - name: Upload extension
+        uses: actions/upload-artifact@v4
+        with:
+          name: drone-soccer-${{ matrix.artifact }}
+          path: gdextension/bin/*
+          if-no-files-found: error

@@ -1,0 +1,42 @@
+; Engine configuration file.
+; SkySim — open-source Godot 4 drone simulator.
+; GDExtensions in gdextension/ are auto-detected by Godot 4 — no plugin to enable.
+
+config_version=5
+
+[application]
+
+config/name="SBS 无人机足球模拟器"
+config/description="面向无人机足球学员的遥控器训练与穿门得分模拟器。"
+run/main_scene="res://demo/soccer_arena.tscn"
+config/features=PackedStringArray("4.2", "GL Compatibility")
+config/icon="res://icon.svg"
+
+[autoload]
+
+; Registers drone control actions in code so the demo needs no manual Input Map.
+InputSetup="*res://demo/scripts/input_setup.gd"
+InputProfile="*res://demo/scripts/input_profile.gd"
+
+[physics]
+
+; SITL firmware EKF/rate loops need a high, fixed physics rate.
+; 400 Hz suits ArduCopter; 250+ suits PX4. See README "Flying with firmware".
+common/physics_ticks_per_second=400
+common/enable_object_picking=false
+
+[rendering]
+
+; Compatibility renderer runs on the widest range of hardware (old iGPUs,
+; low-end laptops, and the web export). Switch to "forward_plus" in
+; Project Settings for the best visuals on a capable GPU.
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+
+[display]
+
+window/size/viewport_width=1600
+window/size/viewport_height=900
+window/size/window_width_override=1280
+window/size/window_height_override=720
+window/stretch/mode="canvas_items"

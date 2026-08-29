@@ -1,4 +1,14 @@
 cmake_minimum_required(VERSION 3.22)
+
+# Set the macOS architectures before project() so the setting is inherited by
+# every target, including the fetched/vendored godot-cpp dependency. Setting
+# OSX_ARCHITECTURES only on drone_sim would produce a universal extension but
+# leave godot-cpp single-architecture, which fails at link time on macOS.
+if(APPLE AND NOT DEFINED CMAKE_OSX_ARCHITECTURES)
+  set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING
+      "macOS architectures to build")
+endif()
+
 project(drone_sim VERSION 2.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -119,10 +129,10 @@ if(WIN32)
 elseif(APPLE)
   set(PLATFORM_TAG "macos")
   set_target_properties(drone_sim PROPERTIES SUFFIX ".dylib" PREFIX "lib")
-  # Universal binary when no single arch was forced.
-  if(NOT CMAKE_OSX_ARCHITECTURES)
+  list(FIND CMAKE_OSX_ARCHITECTURES "x86_64" _macos_x86_64_index)
+  list(FIND CMAKE_OSX_ARCHITECTURES "arm64" _macos_arm64_index)
+  if(NOT _macos_x86_64_index EQUAL -1 AND NOT _macos_arm64_index EQUAL -1)
     set(ARCH_TAG "universal")
-    set_target_properties(drone_sim PROPERTIES OSX_ARCHITECTURES "x86_64;arm64")
   endif()
 else()
   set(PLATFORM_TAG "linux")

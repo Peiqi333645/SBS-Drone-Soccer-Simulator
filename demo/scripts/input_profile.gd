@@ -54,7 +54,7 @@ func value(control: StringName) -> float:
 		normalized *= -1.0
 	if abs(normalized) <= deadzone:
 		return 0.0
-	var dz := (abs(normalized) - deadzone) / (1.0 - deadzone)
+	var dz: float = (abs(normalized) - deadzone) / (1.0 - deadzone)
 	normalized = sign(normalized) * dz
 	return lerp(normalized, normalized * normalized * normalized, expo)
 

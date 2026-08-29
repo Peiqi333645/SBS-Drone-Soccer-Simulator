@@ -1,7 +1,9 @@
-name: Validate Drone Soccer Project
+name: Build Drone Soccer Simulator
 
 on:
   push:
+    branches:
+      - main
   pull_request:
 
 jobs:
@@ -26,6 +28,64 @@ jobs:
       - name: Upload extension
         uses: actions/upload-artifact@v4
         with:
-          name: drone-soccer-${{ matrix.artifact }}
+          name: drone-soccer-extension-${{ matrix.artifact }}
           path: gdextension/bin/*
+          if-no-files-found: error
+
+  export-game:
+    needs: build-extension
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - preset: Windows x64
+            output: dist/windows/SBS-Drone-Soccer-Simulator.exe
+            artifact: SBS-Drone-Soccer-Simulator-Windows-x64
+          - preset: macOS Universal
+            output: dist/macos/SBS-Drone-Soccer-Simulator.zip
+            artifact: SBS-Drone-Soccer-Simulator-macOS-Universal
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download compiled physics extensions
+        uses: actions/download-artifact@v4
+        with:
+          pattern: drone-soccer-extension-*
+          path: gdextension/bin
+          merge-multiple: true
+
+      - name: Install Godot 4.3 and export templates
+        shell: bash
+        run: |
+          curl --fail --location --retry 3 \
+            --output /tmp/godot.zip \
+            https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.3-stable_linux.x86_64
+
+          curl --fail --location --retry 3 \
+            --output /tmp/export_templates.tpz \
+            https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz
+          mkdir -p /tmp/godot-templates
+          unzip -q /tmp/export_templates.tpz -d /tmp/godot-templates
+          mkdir -p "${HOME}/.local/share/godot/export_templates/4.3.stable"
+          cp -R /tmp/godot-templates/templates/. \
+            "${HOME}/.local/share/godot/export_templates/4.3.stable/"
+
+      - name: Export playable game
+        shell: bash
+        run: |
+          mkdir -p "$(dirname "${{ matrix.output }}")"
+          /tmp/godot/Godot_v4.3-stable_linux.x86_64 \
+            --headless \
+            --path . \
+            --export-release "${{ matrix.preset }}" \
+            "${{ matrix.output }}"
+
+      - name: Upload playable game
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.output }}
           if-no-files-found: error

@@ -31,7 +31,7 @@ func _process(delta: float) -> void:
 	if not armed or game.input_blocked:
 		return
 
-	var throttle := clamp((InputProfile.value(&"throttle") + 1.0) * 0.5, 0.0, 1.0)
+	var throttle: float = clampf((InputProfile.value(&"throttle") + 1.0) * 0.5, 0.0, 1.0)
 	var yaw := InputProfile.value(&"yaw")
 	var pitch := InputProfile.value(&"pitch")
 	var roll := InputProfile.value(&"roll")

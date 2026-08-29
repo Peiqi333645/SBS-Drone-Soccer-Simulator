@@ -55,6 +55,18 @@ jobs:
           path: gdextension/bin
           merge-multiple: true
 
+      - name: Normalize extension paths
+        shell: bash
+        run: |
+          windows_dll="$(find gdextension/bin -type f -name 'drone_sim.windows.release.x86_64.dll' -print -quit)"
+          test -n "${windows_dll}"
+          if [ "${windows_dll}" != "gdextension/bin/drone_sim.windows.release.x86_64.dll" ]; then
+            cp "${windows_dll}" gdextension/bin/drone_sim.windows.release.x86_64.dll
+          fi
+          test -f gdextension/bin/libdrone_sim.linux.release.x86_64.so
+          test -f gdextension/bin/libdrone_sim.macos.release.universal.dylib
+          find gdextension/bin -maxdepth 2 -type f -print
+
       - name: Install Godot 4.3 and export templates
         shell: bash
         run: |

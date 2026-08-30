@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=21 format=3]
 
 [ext_resource type="Script" path="res://demo/scripts/arena_builder.gd" id="1_arena"]
 [ext_resource type="Script" path="res://demo/scripts/soccer_controller.gd" id="2_ctrl"]
@@ -27,38 +27,69 @@ tonemap_mode = 2
 radius = 0.62
 
 [sub_resource type="SphereMesh" id="CoreMesh"]
-radius = 0.18
-height = 0.36
+radius = 0.2
+height = 0.34
 
 [sub_resource type="StandardMaterial3D" id="CoreMat"]
-albedo_color = Color(0.055, 0.07, 0.085, 1)
-metallic = 0.65
-roughness = 0.28
+albedo_color = Color(0.035, 0.05, 0.065, 1)
+metallic = 0.72
+roughness = 0.24
 
 [sub_resource type="TorusMesh" id="CageMesh"]
-inner_radius = 0.55
+inner_radius = 0.545
 outer_radius = 0.62
-rings = 24
-ring_segments = 10
+rings = 32
+ring_segments = 12
 
 [sub_resource type="StandardMaterial3D" id="CageMat"]
-albedo_color = Color(1, 0.72, 0.08, 1)
+albedo_color = Color(1, 0.64, 0.04, 1)
 emission_enabled = true
-emission = Color(0.55, 0.25, 0.015, 1)
-emission_energy_multiplier = 1.2
-roughness = 0.42
+emission = Color(0.5, 0.2, 0.008, 1)
+emission_energy_multiplier = 1.15
+metallic = 0.22
+roughness = 0.36
 
 [sub_resource type="BoxMesh" id="ArmMesh"]
-size = Vector3(0.62, 0.035, 0.055)
+size = Vector3(0.66, 0.045, 0.065)
 
 [sub_resource type="CylinderMesh" id="RotorMesh"]
-top_radius = 0.115
-bottom_radius = 0.115
-height = 0.018
+top_radius = 0.125
+bottom_radius = 0.125
+height = 0.012
 
 [sub_resource type="StandardMaterial3D" id="RotorMat"]
-albedo_color = Color(0.1, 0.77, 1, 0.72)
+albedo_color = Color(0.12, 0.75, 0.95, 0.46)
 transparency = 1
+metallic = 0.35
+roughness = 0.18
+
+[sub_resource type="CylinderMesh" id="MotorMesh"]
+top_radius = 0.055
+bottom_radius = 0.06
+height = 0.075
+
+[sub_resource type="BoxMesh" id="PropMesh"]
+size = Vector3(0.32, 0.012, 0.035)
+
+[sub_resource type="CapsuleMesh" id="BatteryMesh"]
+radius = 0.11
+height = 0.34
+
+[sub_resource type="SphereMesh" id="LightMesh"]
+radius = 0.035
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="FrontLightMat"]
+albedo_color = Color(0.1, 0.85, 1, 1)
+emission_enabled = true
+emission = Color(0.05, 0.7, 1, 1)
+emission_energy_multiplier = 3.0
+
+[sub_resource type="StandardMaterial3D" id="RearLightMat"]
+albedo_color = Color(1, 0.12, 0.06, 1)
+emission_enabled = true
+emission = Color(1, 0.035, 0.01, 1)
+emission_energy_multiplier = 3.0
 
 [node name="SoccerArena" type="Node3D"]
 
@@ -82,6 +113,11 @@ shape = SubResource("DroneCol")
 mesh = SubResource("CoreMesh")
 material_override = SubResource("CoreMat")
 
+[node name="Battery" type="MeshInstance3D" parent="DroneBody"]
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("BatteryMesh")
+material_override = SubResource("CoreMat")
+
 [node name="ArmX" type="MeshInstance3D" parent="DroneBody"]
 mesh = SubResource("ArmMesh")
 material_override = SubResource("CoreMat")
@@ -92,23 +128,67 @@ mesh = SubResource("ArmMesh")
 material_override = SubResource("CoreMat")
 
 [node name="RotorFront" type="MeshInstance3D" parent="DroneBody"]
-position = Vector3(0, 0.06, -0.29)
+position = Vector3(0, 0.075, -0.3)
 mesh = SubResource("RotorMesh")
 material_override = SubResource("RotorMat")
 
 [node name="RotorBack" type="MeshInstance3D" parent="DroneBody"]
-position = Vector3(0, 0.06, 0.29)
+position = Vector3(0, 0.075, 0.3)
 mesh = SubResource("RotorMesh")
 material_override = SubResource("RotorMat")
 
 [node name="RotorLeft" type="MeshInstance3D" parent="DroneBody"]
-position = Vector3(-0.29, 0.06, 0)
+position = Vector3(-0.3, 0.075, 0)
 mesh = SubResource("RotorMesh")
 material_override = SubResource("RotorMat")
 
 [node name="RotorRight" type="MeshInstance3D" parent="DroneBody"]
-position = Vector3(0.29, 0.06, 0)
+position = Vector3(0.3, 0.075, 0)
 mesh = SubResource("RotorMesh")
+material_override = SubResource("RotorMat")
+
+[node name="MotorFront" type="MeshInstance3D" parent="DroneBody"]
+position = Vector3(0, 0.035, -0.3)
+mesh = SubResource("MotorMesh")
+material_override = SubResource("CoreMat")
+
+[node name="MotorBack" type="MeshInstance3D" parent="DroneBody"]
+position = Vector3(0, 0.035, 0.3)
+mesh = SubResource("MotorMesh")
+material_override = SubResource("CoreMat")
+
+[node name="MotorLeft" type="MeshInstance3D" parent="DroneBody"]
+position = Vector3(-0.3, 0.035, 0)
+mesh = SubResource("MotorMesh")
+material_override = SubResource("CoreMat")
+
+[node name="MotorRight" type="MeshInstance3D" parent="DroneBody"]
+position = Vector3(0.3, 0.035, 0)
+mesh = SubResource("MotorMesh")
+material_override = SubResource("CoreMat")
+
+[node name="PropFront" type="MeshInstance3D" parent="DroneBody"]
+position = Vector3(0, 0.085, -0.3)
+rotation_degrees = Vector3(0, 30, 0)
+mesh = SubResource("PropMesh")
+material_override = SubResource("RotorMat")
+
+[node name="PropBack" type="MeshInstance3D" parent="DroneBody"]
+position = Vector3(0, 0.085, 0.3)
+rotation_degrees = Vector3(0, -30, 0)
+mesh = SubResource("PropMesh")
+material_override = SubResource("RotorMat")
+
+[node name="PropLeft" type="MeshInstance3D" parent="DroneBody"]
+position = Vector3(-0.3, 0.085, 0)
+rotation_degrees = Vector3(0, -30, 0)
+mesh = SubResource("PropMesh")
+material_override = SubResource("RotorMat")
+
+[node name="PropRight" type="MeshInstance3D" parent="DroneBody"]
+position = Vector3(0.3, 0.085, 0)
+rotation_degrees = Vector3(0, 30, 0)
+mesh = SubResource("PropMesh")
 material_override = SubResource("RotorMat")
 
 [node name="CageA" type="MeshInstance3D" parent="DroneBody"]
@@ -124,6 +204,36 @@ material_override = SubResource("CageMat")
 rotation_degrees = Vector3(0, 0, 90)
 mesh = SubResource("CageMesh")
 material_override = SubResource("CageMat")
+
+[node name="CageD" type="MeshInstance3D" parent="DroneBody"]
+rotation_degrees = Vector3(45, 0, 0)
+mesh = SubResource("CageMesh")
+material_override = SubResource("CageMat")
+
+[node name="CageE" type="MeshInstance3D" parent="DroneBody"]
+rotation_degrees = Vector3(0, 0, 45)
+mesh = SubResource("CageMesh")
+material_override = SubResource("CageMat")
+
+[node name="CageF" type="MeshInstance3D" parent="DroneBody"]
+rotation_degrees = Vector3(45, 90, 0)
+mesh = SubResource("CageMesh")
+material_override = SubResource("CageMat")
+
+[node name="FrontLightLeft" type="MeshInstance3D" parent="DroneBody"]
+position = Vector3(-0.105, 0.08, -0.18)
+mesh = SubResource("LightMesh")
+material_override = SubResource("FrontLightMat")
+
+[node name="FrontLightRight" type="MeshInstance3D" parent="DroneBody"]
+position = Vector3(0.105, 0.08, -0.18)
+mesh = SubResource("LightMesh")
+material_override = SubResource("FrontLightMat")
+
+[node name="RearLight" type="MeshInstance3D" parent="DroneBody"]
+position = Vector3(0, 0.08, 0.2)
+mesh = SubResource("LightMesh")
+material_override = SubResource("RearLightMat")
 
 [node name="FPVCamera" type="Camera3D" parent="DroneBody"]
 position = Vector3(0, 0.12, -0.22)

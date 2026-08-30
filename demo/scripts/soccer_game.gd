@@ -19,6 +19,7 @@ var _time_label: Label
 var _status_label: Label
 var _device_label: Label
 var _toast: Label
+var _pause_panel: PanelContainer
 
 
 func _ready() -> void:
@@ -29,8 +30,17 @@ func _ready() -> void:
 	get_node(arena_path).goal_scored.connect(_on_goal_scored)
 	_build_hud()
 	reset_drone()
-	if not InputProfile.has_saved_profile():
+	if not InputProfile.has_saved_profile() or InputProfile.consume_calibration_request():
 		call_deferred("open_calibration")
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		if get_node("../CalibrationUI").visible:
+			get_node("../CalibrationUI").close_ui()
+		else:
+			toggle_pause()
+		get_viewport().set_input_as_handled()
 
 
 func _process(delta: float) -> void:
@@ -53,7 +63,7 @@ func _build_hud() -> void:
 	top.offset_bottom = 92
 	layer.add_child(top)
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 28)
+	row.add_theme_constant_override("separation", 20)
 	top.add_child(row)
 	_score_label = Label.new()
 	_score_label.add_theme_font_size_override("font_size", 28)
@@ -66,9 +76,17 @@ func _build_hud() -> void:
 	_time_label.add_theme_font_size_override("font_size", 24)
 	row.add_child(_time_label)
 	_device_label = Label.new()
-	_device_label.custom_minimum_size.x = 260
+	_device_label.custom_minimum_size.x = 230
 	_device_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(_device_label)
+	var calibrate := Button.new()
+	calibrate.text = "校准遥控器"
+	calibrate.pressed.connect(open_calibration)
+	row.add_child(calibrate)
+	var menu := Button.new()
+	menu.text = "菜单  Esc"
+	menu.pressed.connect(toggle_pause)
+	row.add_child(menu)
 
 	var bottom := PanelContainer.new()
 	bottom.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -86,7 +104,7 @@ func _build_hud() -> void:
 	var help := Label.new()
 	help.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	help.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	help.text = "Enter 解锁  ·  Backspace 锁定  ·  R 复位  ·  C 视角  ·  K 校准"
+	help.text = "Enter 解锁 · Backspace 锁定 · R 复位 · C 视角 · K 校准 · Esc 菜单"
 	bottom_row.add_child(help)
 
 	_toast = Label.new()
@@ -97,6 +115,79 @@ func _build_hud() -> void:
 	_toast.add_theme_font_size_override("font_size", 30)
 	_toast.visible = false
 	layer.add_child(_toast)
+	_build_pause_menu(layer)
+
+
+func _build_pause_menu(layer: CanvasLayer) -> void:
+	var shade := ColorRect.new()
+	shade.name = "PauseShade"
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.01, 0.025, 0.035, 0.76)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	shade.visible = false
+	layer.add_child(shade)
+	_pause_panel = PanelContainer.new()
+	_pause_panel.set_anchors_preset(Control.PRESET_CENTER)
+	_pause_panel.position = Vector2(-230, -280)
+	_pause_panel.size = Vector2(460, 560)
+	shade.add_child(_pause_panel)
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 38)
+	margin.add_theme_constant_override("margin_right", 38)
+	margin.add_theme_constant_override("margin_top", 34)
+	margin.add_theme_constant_override("margin_bottom", 34)
+	_pause_panel.add_child(margin)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 15)
+	margin.add_child(column)
+	var title := Label.new()
+	title.text = "训练已暂停"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 32)
+	column.add_child(title)
+	column.add_child(_menu_button("继续训练", toggle_pause))
+	column.add_child(_menu_button("校准遥控器", open_calibration))
+	column.add_child(_menu_button("重新开始本局", restart_match))
+	column.add_child(_menu_button("返回主页面", return_to_main_menu))
+	column.add_child(_menu_button("退出游戏", quit_game))
+	var tip := Label.new()
+	tip.text = "也可以再次按 Esc 继续"
+	tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tip.add_theme_color_override("font_color", Color("7fa3ad"))
+	column.add_child(tip)
+
+
+func _menu_button(text_value: String, callback: Callable) -> Button:
+	var button := Button.new()
+	button.text = text_value
+	button.custom_minimum_size.y = 55
+	button.add_theme_font_size_override("font_size", 20)
+	button.pressed.connect(callback)
+	return button
+
+
+func toggle_pause() -> void:
+	var shade := _pause_panel.get_parent()
+	shade.visible = not shade.visible
+	set_input_blocked(shade.visible)
+	set_status("训练已暂停" if shade.visible else "继续训练 · 按 Enter 解锁")
+
+
+func restart_match() -> void:
+	score = [0, 0]
+	elapsed = 0.0
+	_score_label.text = "蓝方  0  :  0  黄方"
+	reset_drone()
+	if _pause_panel.get_parent().visible:
+		toggle_pause()
+
+
+func return_to_main_menu() -> void:
+	get_tree().change_scene_to_file("res://demo/main_menu.tscn")
+
+
+func quit_game() -> void:
+	get_tree().quit()
 
 
 func _on_goal_scored(team: int) -> void:
@@ -135,6 +226,8 @@ func toggle_camera() -> void:
 
 
 func open_calibration() -> void:
+	if is_instance_valid(_pause_panel):
+		_pause_panel.get_parent().visible = false
 	var calibration := get_node_or_null("../CalibrationUI")
 	if calibration:
 		calibration.open()

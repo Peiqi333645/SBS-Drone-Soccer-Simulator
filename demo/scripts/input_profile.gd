@@ -8,6 +8,7 @@ const AXES := [&"throttle", &"yaw", &"pitch", &"roll"]
 var device_id := 0
 var deadzone := 0.04
 var expo := 0.28
+var calibration_requested := false
 var mappings := {
 	"throttle": {"axis": 1, "min": -1.0, "center": 0.0, "max": 1.0, "invert": true},
 	"yaw": {"axis": 0, "min": -1.0, "center": 0.0, "max": 1.0, "invert": false},
@@ -18,6 +19,16 @@ var mappings := {
 
 func _ready() -> void:
 	load_profile()
+
+
+func request_calibration() -> void:
+	calibration_requested = true
+
+
+func consume_calibration_request() -> bool:
+	var requested := calibration_requested
+	calibration_requested = false
+	return requested
 
 
 func has_saved_profile() -> bool:
@@ -59,16 +70,8 @@ func value(control: StringName) -> float:
 	return lerp(normalized, normalized * normalized * normalized, expo)
 
 
-func set_mapping(
-	control: StringName, axis: int, minimum: float, center: float, maximum: float, invert: bool
-) -> void:
-	mappings[String(control)] = {
-		"axis": axis,
-		"min": minimum,
-		"center": center,
-		"max": maximum,
-		"invert": invert,
-	}
+func set_mapping(control: StringName, axis: int, minimum: float, center: float, maximum: float, invert: bool) -> void:
+	mappings[String(control)] = {"axis": axis, "min": minimum, "center": center, "max": maximum, "invert": invert}
 	save_profile()
 	profile_changed.emit()
 
@@ -76,23 +79,7 @@ func set_mapping(
 func save_profile() -> void:
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
-		(
-			file
-			. store_string(
-				(
-					JSON
-					. stringify(
-						{
-							"device_id": device_id,
-							"deadzone": deadzone,
-							"expo": expo,
-							"mappings": mappings,
-						},
-						"\t"
-					)
-				)
-			)
-		)
+		file.store_string(JSON.stringify({"device_id": device_id, "deadzone": deadzone, "expo": expo, "mappings": mappings}, "\t"))
 
 
 func load_profile() -> void:

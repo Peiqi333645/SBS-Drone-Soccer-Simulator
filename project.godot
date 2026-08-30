@@ -32,6 +32,7 @@ common/enable_object_picking=false
 ; Project Settings for the best visuals on a capable GPU.
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
 
 [display]
 

@@ -195,7 +195,7 @@ void DroneBody::_integrate_forces(PhysicsDirectBodyState3D* gstate) {
 // ============================================================================
 // Control API
 // ============================================================================
-void DroneBody::arm()   { _armed = true;  _fc->reset(); _direct_throttle_mode = false; }
+void DroneBody::arm()   { _armed = true; _fc->reset(); _direct_throttle_mode = false; set_sleeping(false); }
 void DroneBody::disarm(){ _armed = false; }
 
 void DroneBody::set_attitude_setpoint(double roll, double pitch,
@@ -204,7 +204,18 @@ void DroneBody::set_attitude_setpoint(double roll, double pitch,
     _setpoints.pitch_rad     = clamp(pitch,     -0.785, 0.785);
     _setpoints.yaw_rate_rads = clamp(yaw_rate,  -3.14,  3.14);
     _setpoints.thrust_norm   = clamp(throttle,   0.0,   1.0);
+    _setpoints.acro_mode      = false;
     _direct_throttle_mode    = false;
+}
+
+void DroneBody::set_rate_setpoint(double roll_rate, double pitch_rate,
+                                  double yaw_rate, double throttle) {
+    _setpoints.roll_rate_rads  = clamp(roll_rate,  -20.0, 20.0);
+    _setpoints.pitch_rate_rads = clamp(pitch_rate, -20.0, 20.0);
+    _setpoints.yaw_rate_rads   = clamp(yaw_rate,   -20.0, 20.0);
+    _setpoints.thrust_norm     = clamp(throttle,     0.0,  1.0);
+    _setpoints.acro_mode       = true;
+    _direct_throttle_mode      = false;
 }
 
 void DroneBody::set_rotor_throttles(PackedFloat64Array throttles) {
@@ -377,6 +388,8 @@ void DroneBody::_bind_methods() {
     ClassDB::bind_method(D_METHOD("disarm"), &DroneBody::disarm);
     ClassDB::bind_method(D_METHOD("set_attitude_setpoint","roll","pitch","yaw_rate","throttle"),
                          &DroneBody::set_attitude_setpoint);
+    ClassDB::bind_method(D_METHOD("set_rate_setpoint","roll_rate","pitch_rate","yaw_rate","throttle"),
+                         &DroneBody::set_rate_setpoint);
     ClassDB::bind_method(D_METHOD("set_rotor_throttles","throttles"),
                          &DroneBody::set_rotor_throttles);
     ClassDB::bind_method(D_METHOD("get_telemetry"), &DroneBody::get_telemetry);

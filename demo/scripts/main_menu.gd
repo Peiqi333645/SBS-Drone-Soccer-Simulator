@@ -17,16 +17,33 @@ func _ready() -> void:
 func _build_background() -> void:
 	var background := ColorRect.new()
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	background.color = Color("081923")
+	background.color = Color("071722")
 	add_child(background)
-	var glow := ColorRect.new()
-	glow.set_anchors_preset(Control.PRESET_FULL_RECT)
-	glow.offset_left = 0
-	glow.offset_top = 0
-	glow.offset_right = 0
-	glow.offset_bottom = -get_viewport_rect().size.y * 0.48
-	glow.color = Color("103b46")
-	background.add_child(glow)
+
+	var sky := ColorRect.new()
+	sky.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	sky.offset_bottom = 360
+	sky.color = Color("164d6b")
+	background.add_child(sky)
+
+	var horizon := ColorRect.new()
+	horizon.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	horizon.offset_top = 300
+	horizon.offset_bottom = 510
+	horizon.color = Color("2d6e75")
+	background.add_child(horizon)
+
+	var field := ColorRect.new()
+	field.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	field.offset_top = -360
+	field.color = Color("163c38")
+	background.add_child(field)
+
+	var accent := ColorRect.new()
+	accent.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	accent.offset_top = -8
+	accent.color = Color("e9ad31")
+	background.add_child(accent)
 
 
 func _build_menu() -> void:
@@ -51,17 +68,17 @@ func _build_menu() -> void:
 	badge.add_theme_font_size_override("font_size", 20)
 	intro.add_child(badge)
 	var title := Label.new()
-	title.text = "无人机足球\n训练模拟器"
+	title.text = "开放式无人机足球\n训练模拟器"
 	title.add_theme_font_size_override("font_size", 58)
 	title.add_theme_color_override("font_color", Color("f4fbff"))
 	intro.add_child(title)
 	var subtitle := Label.new()
-	subtitle.text = "球形穿越机操控 · 球门穿越训练 · USB 遥控器校准"
+	subtitle.text = "开放户外球场 · 稳定跟随镜头 · USB 遥控器训练"
 	subtitle.add_theme_font_size_override("font_size", 21)
 	subtitle.add_theme_color_override("font_color", Color("a8c5cd"))
 	intro.add_child(subtitle)
 	var feature := Label.new()
-	feature.text = "● 双球门训练场    ● FPV / 跟随视角    ● 本地保存遥控器配置"
+	feature.text = "● 开放式双球门场地    ● FPV / 航向跟随视角    ● 高度与速度遥测"
 	feature.add_theme_font_size_override("font_size", 17)
 	feature.add_theme_color_override("font_color", Color("75a6b0"))
 	intro.add_child(feature)
@@ -92,7 +109,7 @@ func _build_menu() -> void:
 	column.add_theme_constant_override("separation", 16)
 	margin.add_child(column)
 	var heading := Label.new()
-	heading.text = "准备起飞"
+	heading.text = "进入开放训练场"
 	heading.add_theme_font_size_override("font_size", 30)
 	column.add_child(heading)
 	_device_label = Label.new()

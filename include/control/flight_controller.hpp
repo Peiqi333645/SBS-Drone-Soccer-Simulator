@@ -44,8 +44,11 @@ public:
     struct Setpoints {
         double roll_rad{};      // desired roll
         double pitch_rad{};     // desired pitch
-        double yaw_rate_rads{}; // desired yaw rate
-        double thrust_norm{};   // [0,1]
+        double yaw_rate_rads{};   // desired yaw rate
+        double thrust_norm{};     // [0,1]
+        bool acro_mode{};         // direct body-rate control, Betaflight style
+        double roll_rate_rads{};
+        double pitch_rate_rads{};
     };
 
     struct Gains {
@@ -57,9 +60,9 @@ public:
         double rate_pitch_p{0.15}, rate_pitch_i{0.05}, rate_pitch_d{0.003};
         double rate_yaw_p{0.20},  rate_yaw_i{0.1},  rate_yaw_d{0.0};
         // Output limits (rad/s²)
-        double max_roll_rate{8.0};
-        double max_pitch_rate{8.0};
-        double max_yaw_rate{3.14};
+        double max_roll_rate{20.0};
+        double max_pitch_rate{20.0};
+        double max_yaw_rate{20.0};
     };
 
     FlightController() noexcept : FlightController(Gains{}) {}
@@ -79,10 +82,17 @@ public:
     ) noexcept {
         Vec3d rpy = orientation.to_euler_rpy();
 
-        // ----- Outer attitude loop ----------------------------------------
-        double roll_rate_sp  = _g.att_roll_p  * (sp.roll_rad  - rpy.x);
-        double pitch_rate_sp = _g.att_pitch_p * (sp.pitch_rad - rpy.y);
-        double yaw_rate_sp   = sp.yaw_rate_rads;
+        // ----- Outer attitude loop / direct Acro rate mode -----------------
+        double roll_rate_sp;
+        double pitch_rate_sp;
+        if (sp.acro_mode) {
+            roll_rate_sp = sp.roll_rate_rads;
+            pitch_rate_sp = sp.pitch_rate_rads;
+        } else {
+            roll_rate_sp = _g.att_roll_p * (sp.roll_rad - rpy.x);
+            pitch_rate_sp = _g.att_pitch_p * (sp.pitch_rad - rpy.y);
+        }
+        double yaw_rate_sp = sp.yaw_rate_rads;
 
         roll_rate_sp  = clamp(roll_rate_sp,  -_g.max_roll_rate,  _g.max_roll_rate);
         pitch_rate_sp = clamp(pitch_rate_sp, -_g.max_pitch_rate, _g.max_pitch_rate);

@@ -142,8 +142,8 @@ void DroneBody::_integrate_forces(PhysicsDirectBodyState3D* gstate) {
     const double g = 9.80665;
     force_world += Vec3d{0.0, -g * body.mass * _gravity_multiplier, 0.0};
 
-    const double drag_lin  = 0.02;  // kg/s  — skin friction approx
-    const double drag_quad = 0.15;  // kg/m  — form drag coefficient
+    const double drag_lin  = _drag_linear;
+    const double drag_quad = _drag_quadratic;
     Vec3d vel_rel = body.velocity - wind_w;
     double v2     = vel_rel.norm2();
     if (v2 > 1e-6) {

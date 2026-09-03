@@ -20,7 +20,20 @@ background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 3
 ambient_light_color = Color(0.78, 0.86, 1, 1)
-ambient_light_energy = 0.92
+ambient_light_energy = 0.72
+ambient_light_sky_contribution = 0.65
+reflected_light_source = 2
+tonemap_exposure = 1.12
+ssao_enabled = true
+ssao_radius = 1.6
+ssao_intensity = 1.35
+ssil_enabled = true
+glow_enabled = true
+fog_enabled = true
+fog_light_color = Color(0.62, 0.77, 0.86, 1)
+fog_light_energy = 0.35
+fog_density = 0.0015
+fog_sky_affect = 0.22
 tonemap_mode = 2
 
 [sub_resource type="SphereShape3D" id="DroneCol"]

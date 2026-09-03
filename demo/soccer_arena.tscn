@@ -1,4 +1,4 @@
-[gd_scene load_steps=21 format=3]
+[gd_scene load_steps=25 format=3]
 
 [ext_resource type="Script" path="res://demo/scripts/arena_builder.gd" id="1_arena"]
 [ext_resource type="Script" path="res://demo/scripts/soccer_controller.gd" id="2_ctrl"]
@@ -85,6 +85,24 @@ emission_enabled = true
 emission = Color(0.05, 0.7, 1, 1)
 emission_energy_multiplier = 3.0
 
+[sub_resource type="BoxMesh" id="ShellMesh"]
+size = Vector3(0.34, 0.14, 0.42)
+
+[sub_resource type="CylinderMesh" id="LensMesh"]
+top_radius = 0.065
+bottom_radius = 0.075
+height = 0.07
+
+[sub_resource type="StandardMaterial3D" id="LensMat"]
+albedo_color = Color(0.025, 0.08, 0.12, 1)
+metallic = 0.55
+roughness = 0.1
+
+[sub_resource type="CylinderMesh" id="AntennaMesh"]
+top_radius = 0.012
+bottom_radius = 0.015
+height = 0.28
+
 [sub_resource type="StandardMaterial3D" id="RearLightMat"]
 albedo_color = Color(1, 0.12, 0.06, 1)
 emission_enabled = true
@@ -108,6 +126,29 @@ max_voltage = 16.8
 
 [node name="Collision" type="CollisionShape3D" parent="DroneBody"]
 shape = SubResource("DroneCol")
+
+[node name="BodyShell" type="MeshInstance3D" parent="DroneBody"]
+position = Vector3(0, 0.02, 0)
+mesh = SubResource("ShellMesh")
+material_override = SubResource("CoreMat")
+
+[node name="CameraLens" type="MeshInstance3D" parent="DroneBody"]
+position = Vector3(0, 0.07, -0.225)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("LensMesh")
+material_override = SubResource("LensMat")
+
+[node name="AntennaLeft" type="MeshInstance3D" parent="DroneBody"]
+position = Vector3(-0.09, 0.10, 0.19)
+rotation_degrees = Vector3(55, 0, -18)
+mesh = SubResource("AntennaMesh")
+material_override = SubResource("CoreMat")
+
+[node name="AntennaRight" type="MeshInstance3D" parent="DroneBody"]
+position = Vector3(0.09, 0.10, 0.19)
+rotation_degrees = Vector3(55, 0, 18)
+mesh = SubResource("AntennaMesh")
+material_override = SubResource("CoreMat")
 
 [node name="Core" type="MeshInstance3D" parent="DroneBody"]
 mesh = SubResource("CoreMesh")

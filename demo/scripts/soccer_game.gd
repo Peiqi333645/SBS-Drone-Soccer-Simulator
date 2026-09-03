@@ -18,6 +18,7 @@ var _score_label: Label
 var _time_label: Label
 var _status_label: Label
 var _device_label: Label
+var _flight_label: Label
 var _toast: Label
 var _pause_panel: PanelContainer
 
@@ -49,73 +50,171 @@ func _process(delta: float) -> void:
 	_time_label.text = _format_time(elapsed)
 	_device_label.text = InputProfile.device_name()
 	_status_label.text = status
+	if is_instance_valid(drone) and _flight_label:
+		var telemetry: Dictionary = drone.get_telemetry()
+		_flight_label.text = "高度  %.1f m    速度  %.1f m/s" % [float(telemetry.get("altitude", 0.0)), float(telemetry.get("ground_speed", 0.0))]
 
 
 func _build_hud() -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 5
 	add_child(layer)
-	var top := PanelContainer.new()
-	top.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	top.offset_left = 24
-	top.offset_top = 18
-	top.offset_right = -24
-	top.offset_bottom = 92
-	layer.add_child(top)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 20)
-	top.add_child(row)
+
+	var top_margin := MarginContainer.new()
+	top_margin.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	top_margin.offset_left = 24
+	top_margin.offset_top = 20
+	top_margin.offset_right = -24
+	top_margin.offset_bottom = 112
+	top_margin.add_theme_constant_override("margin_left", 0)
+	top_margin.add_theme_constant_override("margin_right", 0)
+	layer.add_child(top_margin)
+
+	var top_row := HBoxContainer.new()
+	top_row.add_theme_constant_override("separation", 14)
+	top_margin.add_child(top_row)
+
+	var score_card := PanelContainer.new()
+	score_card.custom_minimum_size = Vector2(340, 82)
+	score_card.add_theme_stylebox_override("panel", _panel_style(Color(0.025, 0.055, 0.075, 0.88), Color(0.20, 0.65, 0.90, 0.55), 16))
+	top_row.add_child(score_card)
+	var score_margin := MarginContainer.new()
+	score_margin.add_theme_constant_override("margin_left", 22)
+	score_margin.add_theme_constant_override("margin_right", 22)
+	score_margin.add_theme_constant_override("margin_top", 12)
+	score_margin.add_theme_constant_override("margin_bottom", 12)
+	score_card.add_child(score_margin)
+	var score_column := VBoxContainer.new()
+	score_margin.add_child(score_column)
+	var score_caption := Label.new()
+	score_caption.text = "开放训练场  ·  SCORE"
+	score_caption.add_theme_font_size_override("font_size", 13)
+	score_caption.add_theme_color_override("font_color", Color("8acfe8"))
+	score_column.add_child(score_caption)
 	_score_label = Label.new()
-	_score_label.add_theme_font_size_override("font_size", 28)
-	_score_label.text = "蓝方  0  :  0  黄方"
-	row.add_child(_score_label)
+	_score_label.add_theme_font_size_override("font_size", 27)
+	_score_label.add_theme_color_override("font_color", Color("f5fbff"))
+	_score_label.text = "蓝方  0   :   0  黄方"
+	score_column.add_child(_score_label)
+
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(spacer)
-	_time_label = Label.new()
-	_time_label.add_theme_font_size_override("font_size", 24)
-	row.add_child(_time_label)
-	_device_label = Label.new()
-	_device_label.custom_minimum_size.x = 230
-	_device_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	row.add_child(_device_label)
-	var calibrate := Button.new()
-	calibrate.text = "校准遥控器"
-	calibrate.pressed.connect(open_calibration)
-	row.add_child(calibrate)
-	var menu := Button.new()
-	menu.text = "菜单  Esc"
-	menu.pressed.connect(toggle_pause)
-	row.add_child(menu)
+	top_row.add_child(spacer)
 
-	var bottom := PanelContainer.new()
-	bottom.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	bottom.offset_left = 24
-	bottom.offset_top = -92
-	bottom.offset_right = -24
-	bottom.offset_bottom = -18
-	layer.add_child(bottom)
+	var flight_card := PanelContainer.new()
+	flight_card.custom_minimum_size = Vector2(420, 82)
+	flight_card.add_theme_stylebox_override("panel", _panel_style(Color(0.025, 0.055, 0.075, 0.88), Color(1.0, 0.75, 0.25, 0.45), 16))
+	top_row.add_child(flight_card)
+	var flight_margin := MarginContainer.new()
+	flight_margin.add_theme_constant_override("margin_left", 20)
+	flight_margin.add_theme_constant_override("margin_right", 16)
+	flight_margin.add_theme_constant_override("margin_top", 10)
+	flight_margin.add_theme_constant_override("margin_bottom", 10)
+	flight_card.add_child(flight_margin)
+	var flight_column := VBoxContainer.new()
+	flight_margin.add_child(flight_column)
+	var flight_top := HBoxContainer.new()
+	flight_top.add_theme_constant_override("separation", 18)
+	flight_column.add_child(flight_top)
+	_time_label = Label.new()
+	_time_label.add_theme_font_size_override("font_size", 25)
+	_time_label.add_theme_color_override("font_color", Color("ffd56a"))
+	flight_top.add_child(_time_label)
+	_device_label = Label.new()
+	_device_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_device_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_device_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	flight_top.add_child(_device_label)
+	_flight_label = Label.new()
+	_flight_label.add_theme_font_size_override("font_size", 15)
+	_flight_label.add_theme_color_override("font_color", Color("b9d9e5"))
+	flight_column.add_child(_flight_label)
+
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 8)
+	top_row.add_child(actions)
+	var calibrate := Button.new()
+	calibrate.text = "校准"
+	calibrate.custom_minimum_size = Vector2(78, 82)
+	calibrate.add_theme_stylebox_override("normal", _button_style(Color(0.04, 0.12, 0.16, 0.9)))
+	calibrate.add_theme_stylebox_override("hover", _button_style(Color(0.08, 0.28, 0.35, 0.96)))
+	calibrate.pressed.connect(open_calibration)
+	actions.add_child(calibrate)
+	var menu := Button.new()
+	menu.text = "菜单"
+	menu.custom_minimum_size = Vector2(78, 82)
+	menu.add_theme_stylebox_override("normal", _button_style(Color(0.04, 0.12, 0.16, 0.9)))
+	menu.add_theme_stylebox_override("hover", _button_style(Color(0.08, 0.28, 0.35, 0.96)))
+	menu.pressed.connect(toggle_pause)
+	actions.add_child(menu)
+
+	var status_card := PanelContainer.new()
+	status_card.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	status_card.offset_left = 24
+	status_card.offset_top = -72
+	status_card.offset_right = -24
+	status_card.offset_bottom = -20
+	status_card.add_theme_stylebox_override("panel", _panel_style(Color(0.025, 0.055, 0.075, 0.84), Color(0.35, 0.75, 0.82, 0.32), 14))
+	layer.add_child(status_card)
+	var status_margin := MarginContainer.new()
+	status_margin.add_theme_constant_override("margin_left", 20)
+	status_margin.add_theme_constant_override("margin_right", 20)
+	status_margin.add_theme_constant_override("margin_top", 10)
+	status_margin.add_theme_constant_override("margin_bottom", 10)
+	status_card.add_child(status_margin)
 	var bottom_row := HBoxContainer.new()
-	bottom_row.add_theme_constant_override("separation", 22)
-	bottom.add_child(bottom_row)
+	bottom_row.add_theme_constant_override("separation", 18)
+	status_margin.add_child(bottom_row)
 	_status_label = Label.new()
-	_status_label.add_theme_font_size_override("font_size", 20)
+	_status_label.add_theme_font_size_override("font_size", 17)
+	_status_label.add_theme_color_override("font_color", Color("bcecff"))
 	bottom_row.add_child(_status_label)
 	var help := Label.new()
 	help.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	help.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	help.text = "Enter 解锁 · Backspace 锁定 · R 复位 · C 视角 · K 校准 · Esc 菜单"
+	help.add_theme_color_override("font_color", Color("a9bdc5"))
+	help.text = "Enter 解锁   R 复位   C 切换视角   K 校准   Esc 菜单"
 	bottom_row.add_child(help)
+
+	var reticle := Label.new()
+	reticle.text = "＋"
+	reticle.set_anchors_preset(Control.PRESET_CENTER)
+	reticle.position = Vector2(-15, -22)
+	reticle.size = Vector2(30, 44)
+	reticle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	reticle.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	reticle.add_theme_font_size_override("font_size", 26)
+	reticle.add_theme_color_override("font_color", Color(0.85, 0.96, 1.0, 0.62))
+	layer.add_child(reticle)
 
 	_toast = Label.new()
 	_toast.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_toast.position = Vector2(-220, 118)
-	_toast.size = Vector2(440, 60)
+	_toast.position = Vector2(-240, 128)
+	_toast.size = Vector2(480, 64)
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_toast.add_theme_font_size_override("font_size", 30)
+	_toast.add_theme_color_override("font_color", Color("ffe287"))
 	_toast.visible = false
 	layer.add_child(_toast)
 	_build_pause_menu(layer)
+
+
+func _panel_style(color: Color, border: Color, radius: int) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = color
+	style.border_color = border
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(radius)
+	style.shadow_color = Color(0, 0, 0, 0.28)
+	style.shadow_size = 8
+	return style
+
+
+func _button_style(color: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = color
+	style.set_corner_radius_all(14)
+	return style
 
 
 func _build_pause_menu(layer: CanvasLayer) -> void:

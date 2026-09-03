@@ -183,6 +183,10 @@ private:
     double _motor_kv{920.0};
     double _max_voltage{14.8};
     double _turbulence_intensity{0.0};
+    double _thrust_multiplier{1.0};
+    double _gravity_multiplier{1.0};
+    double _drag_linear{0.02};
+    double _drag_quadratic{0.15};
     double _ground_height{0.0};
     Vec3d  _wind_world{};
 

@@ -110,6 +110,8 @@ void DroneBody::_integrate_forces(PhysicsDirectBodyState3D* gstate) {
 
     // ---- Rotor aerodynamics (body frame) ------------------------------------
     Wrench rotor_wrench = _rotors->solve_all(body, _atm, wind_w, dt);
+    rotor_wrench.force = rotor_wrench.force * _thrust_multiplier;
+    rotor_wrench.torque = rotor_wrench.torque * _thrust_multiplier;
 
     // ---- Ground Effect ------------------------------------------------------
     const double h_agl = std::max(alt - _ground_height, 0.0);
@@ -138,7 +140,7 @@ void DroneBody::_integrate_forces(PhysicsDirectBodyState3D* gstate) {
     Vec3d torque_world = body.orientation.rotate(rotor_wrench.torque);
 
     const double g = 9.80665;
-    force_world += Vec3d{0.0, -g * body.mass, 0.0};
+    force_world += Vec3d{0.0, -g * body.mass * _gravity_multiplier, 0.0};
 
     const double drag_lin  = 0.02;  // kg/s  — skin friction approx
     const double drag_quad = 0.15;  // kg/m  — form drag coefficient
@@ -353,6 +355,14 @@ double DroneBody::get_max_voltage() const      { return _max_voltage; }
 
 void   DroneBody::set_turbulence_intensity(double i) { _turbulence_intensity = std::max(0.0,i); }
 double DroneBody::get_turbulence_intensity() const   { return _turbulence_intensity; }
+void DroneBody::set_thrust_multiplier(double v) { _thrust_multiplier = clamp(v, 0.25, 2.5); }
+double DroneBody::get_thrust_multiplier() const { return _thrust_multiplier; }
+void DroneBody::set_gravity_multiplier(double v) { _gravity_multiplier = clamp(v, 0.25, 2.0); }
+double DroneBody::get_gravity_multiplier() const { return _gravity_multiplier; }
+void DroneBody::set_drag_linear(double v) { _drag_linear = clamp(v, 0.0, 1.0); }
+double DroneBody::get_drag_linear() const { return _drag_linear; }
+void DroneBody::set_drag_quadratic(double v) { _drag_quadratic = clamp(v, 0.0, 2.0); }
+double DroneBody::get_drag_quadratic() const { return _drag_quadratic; }
 
 void   DroneBody::set_wind(Vector3 w)          { _wind_world = _gv3_to_sim(w); }
 Vector3 DroneBody::get_wind() const            { return _sim_to_gv3(_wind_world); }
@@ -424,6 +434,19 @@ void DroneBody::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_turbulence_intensity"),     &DroneBody::get_turbulence_intensity);
     ADD_PROPERTY(PropertyInfo(Variant::FLOAT,"turbulence_intensity",PROPERTY_HINT_RANGE,"0,5,0.01"),
                  "set_turbulence_intensity","get_turbulence_intensity");
+
+    ClassDB::bind_method(D_METHOD("set_thrust_multiplier","v"), &DroneBody::set_thrust_multiplier);
+    ClassDB::bind_method(D_METHOD("get_thrust_multiplier"), &DroneBody::get_thrust_multiplier);
+    ADD_PROPERTY(PropertyInfo(Variant::FLOAT,"thrust_multiplier",PROPERTY_HINT_RANGE,"0.25,2.5,0.01"),"set_thrust_multiplier","get_thrust_multiplier");
+    ClassDB::bind_method(D_METHOD("set_gravity_multiplier","v"), &DroneBody::set_gravity_multiplier);
+    ClassDB::bind_method(D_METHOD("get_gravity_multiplier"), &DroneBody::get_gravity_multiplier);
+    ADD_PROPERTY(PropertyInfo(Variant::FLOAT,"gravity_multiplier",PROPERTY_HINT_RANGE,"0.25,2.0,0.01"),"set_gravity_multiplier","get_gravity_multiplier");
+    ClassDB::bind_method(D_METHOD("set_drag_linear","v"), &DroneBody::set_drag_linear);
+    ClassDB::bind_method(D_METHOD("get_drag_linear"), &DroneBody::get_drag_linear);
+    ADD_PROPERTY(PropertyInfo(Variant::FLOAT,"drag_linear",PROPERTY_HINT_RANGE,"0,1,0.001"),"set_drag_linear","get_drag_linear");
+    ClassDB::bind_method(D_METHOD("set_drag_quadratic","v"), &DroneBody::set_drag_quadratic);
+    ClassDB::bind_method(D_METHOD("get_drag_quadratic"), &DroneBody::get_drag_quadratic);
+    ADD_PROPERTY(PropertyInfo(Variant::FLOAT,"drag_quadratic",PROPERTY_HINT_RANGE,"0,2,0.001"),"set_drag_quadratic","get_drag_quadratic");
 
     ClassDB::bind_method(D_METHOD("set_wind","wind"), &DroneBody::set_wind);
     ClassDB::bind_method(D_METHOD("get_wind"),        &DroneBody::get_wind);

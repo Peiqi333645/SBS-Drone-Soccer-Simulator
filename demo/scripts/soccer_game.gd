@@ -52,7 +52,7 @@ func _process(delta: float) -> void:
 	_status_label.text = status
 	if is_instance_valid(drone) and _flight_label:
 		var telemetry: Dictionary = drone.get_telemetry()
-		_flight_label.text = "高度  %.1f m    速度  %.1f m/s" % [float(telemetry.get("altitude", 0.0)), float(telemetry.get("ground_speed", 0.0))]
+		_flight_label.text = "高度  %.1f m    速度  %.1f m/s" % [float(telemetry.get("altitude", 0.0)), float(telemetry.get("ground_speed", 0.0))] + "\n" + controller.rate_summary()
 
 
 func _build_hud() -> void:

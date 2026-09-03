@@ -5,6 +5,7 @@ on:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
 
 jobs:
   build-extension:
@@ -30,6 +31,41 @@ jobs:
         with:
           name: drone-soccer-extension-${{ matrix.artifact }}
           path: gdextension/bin/*
+          if-no-files-found: error
+
+  package-godot-editor-project:
+    name: Package Godot 4.7 editor project for macOS
+    needs: build-extension
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download macOS universal physics extension
+        uses: actions/download-artifact@v4
+        with:
+          name: drone-soccer-extension-macos-universal
+          path: gdextension/bin
+
+      - name: Verify and package import-ready project
+        shell: bash
+        run: |
+          dylib="$(find gdextension/bin -type f -name 'libdrone_sim.macos.release.universal.dylib' -print -quit)"
+          test -n "$dylib"
+          if [ "$dylib" != "gdextension/bin/libdrone_sim.macos.release.universal.dylib" ]; then
+            cp "$dylib" gdextension/bin/libdrone_sim.macos.release.universal.dylib
+          fi
+          test -f project.godot
+          test -f gdextension/drone_sim.gdextension
+          test -f gdextension/bin/libdrone_sim.macos.release.universal.dylib
+          mkdir -p package/SBS-Drone-Soccer-Simulator-Godot-4.7
+          rsync -a             --exclude '.git'             --exclude '.github'             --exclude '.godot'             --exclude 'build'             --exclude 'package'             ./ package/SBS-Drone-Soccer-Simulator-Godot-4.7/
+          ditto -c -k --sequesterRsrc --keepParent             package/SBS-Drone-Soccer-Simulator-Godot-4.7             SBS-Drone-Soccer-Simulator-Godot-4.7-macOS.zip
+
+      - name: Upload Godot editor project
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBS-Drone-Soccer-Simulator-Godot-4.7-macOS
+          path: SBS-Drone-Soccer-Simulator-Godot-4.7-macOS.zip
           if-no-files-found: error
 
   export-game:
@@ -59,9 +95,9 @@ jobs:
         shell: bash
         run: |
           windows_dll="$(find gdextension/bin -type f -name 'drone_sim.windows.release.x86_64.dll' -print -quit)"
-          test -n "${windows_dll}"
-          if [ "${windows_dll}" != "gdextension/bin/drone_sim.windows.release.x86_64.dll" ]; then
-            cp "${windows_dll}" gdextension/bin/drone_sim.windows.release.x86_64.dll
+          test -n "$windows_dll"
+          if [ "$windows_dll" != "gdextension/bin/drone_sim.windows.release.x86_64.dll" ]; then
+            cp "$windows_dll" gdextension/bin/drone_sim.windows.release.x86_64.dll
           fi
           test -f gdextension/bin/libdrone_sim.linux.release.x86_64.so
           test -f gdextension/bin/libdrone_sim.macos.release.universal.dylib

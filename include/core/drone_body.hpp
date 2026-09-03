@@ -80,6 +80,8 @@ public:
     // -----------------------------------------------------------------------
     void set_attitude_setpoint(double roll, double pitch,
                                double yaw_rate, double throttle);
+    void set_rate_setpoint(double roll_rate, double pitch_rate,
+                           double yaw_rate, double throttle);
     void set_rotor_throttles(godot::PackedFloat64Array throttles);
     void arm();
     void disarm();

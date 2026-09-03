@@ -9,6 +9,8 @@ var throttle_smoothed := 0.0
 func _ready() -> void:
 	drone = get_node(drone_path) as DroneBody
 	game = get_node(game_path)
+	InputProfile.profile_changed.connect(apply_profile)
+	apply_profile()
 func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("drone_arm"): arm()
 	if Input.is_action_just_pressed("drone_disarm"): disarm()
@@ -41,6 +43,23 @@ func _throttle_curve(value: float) -> float:
 	else:
 		shaped = mid + (1.0 - mid) * (1.0 - pow((1.0 - t) / (1.0 - mid), 1.0 + InputProfile.throttle_expo))
 	return shaped * InputProfile.motor_output_limit
+func apply_profile() -> void:
+	if not is_instance_valid(drone): return
+	drone.mass = float(InputProfile.physics.mass)
+	drone.gravity_multiplier = float(InputProfile.physics.gravity)
+	drone.thrust_multiplier = float(InputProfile.physics.thrust)
+	drone.drag_linear = float(InputProfile.physics.drag_low)
+	drone.drag_quadratic = float(InputProfile.physics.drag_high)
+	drone.turbulence_intensity = float(InputProfile.physics.turbulence)
+	var fpv := game.get_node_or_null("../DroneBody/FPVCamera") as Camera3D
+	var chase := game.get_node_or_null("../ChaseCamera") as Camera3D
+	if fpv:
+		fpv.rotation_degrees.x = float(InputProfile.camera.angle)
+		fpv.fov = float(InputProfile.camera.fov)
+	if chase:
+		chase.follow_distance = float(InputProfile.camera.follow_distance)
+		chase.follow_height = float(InputProfile.camera.follow_height)
+
 func arm() -> void:
 	if armed or game.input_blocked: return
 	var throttle := (InputProfile.value(&"throttle") + 1.0) * 0.5
@@ -61,4 +80,5 @@ func disarm() -> void:
 func force_disarm() -> void:
 	disarm()
 func rate_summary() -> String:
-	return "BF %.2f / %.2f / %.2f   输出 %.0f%%" % [InputProfile.bf_rc_rate, InputProfile.bf_super_rate, InputProfile.bf_rate_expo, InputProfile.motor_output_limit * 100.0]
+	var r: Dictionary = InputProfile.axis_rates["roll"]
+	return "BF R %.2f / %.2f / %.2f   输出 %.0f%%" % [float(r.rc), float(r.super), float(r.expo), InputProfile.motor_output_limit * 100.0]

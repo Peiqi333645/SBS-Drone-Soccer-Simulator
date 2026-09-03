@@ -97,6 +97,7 @@ func _add_channel_row(parent: VBoxContainer, index: int) -> void:
 	var bar := ProgressBar.new()
 	bar.min_value = -100
 	bar.max_value = 100
+	bar.show_percentage = false
 	bar.custom_minimum_size = Vector2(350, 34)
 	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(bar)

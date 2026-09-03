@@ -104,6 +104,15 @@ public:
     void   set_turbulence_intensity(double i);
     double get_turbulence_intensity() const;
 
+    void   set_thrust_multiplier(double v);
+    double get_thrust_multiplier() const;
+    void   set_gravity_multiplier(double v);
+    double get_gravity_multiplier() const;
+    void   set_drag_linear(double v);
+    double get_drag_linear() const;
+    void   set_drag_quadratic(double v);
+    double get_drag_quadratic() const;
+
     void   set_wind(godot::Vector3 w);
     godot::Vector3 get_wind() const;
 

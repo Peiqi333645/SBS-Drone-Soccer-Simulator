@@ -35,16 +35,14 @@ jobs:
 
   package-godot-editor-project:
     name: Package Godot 4.7 editor project for macOS
-    needs: build-extension
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download macOS universal physics extension
-        uses: actions/download-artifact@v4
-        with:
-          name: drone-soccer-extension-macos-universal
-          path: gdextension/bin
+      - name: Build macOS universal physics extension
+        run: |
+          cmake -B build-editor -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-editor --config Release --parallel 2
 
       - name: Verify and package import-ready project
         shell: bash

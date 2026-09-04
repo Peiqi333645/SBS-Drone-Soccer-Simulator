@@ -34,6 +34,10 @@ func _process(delta: float) -> void:
 		InputProfile.flight_mode = modes[(modes.find(InputProfile.flight_mode) + 1) % modes.size()]
 		InputProfile.save_profile()
 	if not armed or game.input_blocked: return
+	if InputProfile.device_id not in InputProfile.connected_devices():
+		game.set_status("遥控器连接丢失，已自动锁定")
+		disarm()
+		return
 	var throttle: float = clampf((InputProfile.value(&"throttle") + 1.0) * 0.5, 0.0, 1.0)
 	var response: float = 1.0 - exp(-lerpf(4.0, 16.0, 1.0 - throttle_smoothing) * delta)
 	throttle_smoothed = lerpf(throttle_smoothed, _throttle_curve(throttle), response)
@@ -131,8 +135,8 @@ func apply_profile() -> void:
 		fpv.rotation_degrees.x = float(InputProfile.camera.angle)
 		fpv.fov = float(InputProfile.camera.fov)
 	if chase:
-		chase.follow_distance = float(InputProfile.camera.follow_distance)
-		chase.follow_height = float(InputProfile.camera.follow_height)
+		chase.set("follow_distance", float(InputProfile.camera.follow_distance))
+		chase.set("follow_height", float(InputProfile.camera.follow_height))
 
 func arm() -> void:
 	if armed or game.input_blocked: return

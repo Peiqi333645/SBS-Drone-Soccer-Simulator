@@ -2,7 +2,7 @@ extends Node
 
 signal profile_changed
 const SAVE_PATH := "user://sbs_controller_profile.json"
-const PROFILE_VERSION := 2
+const PROFILE_VERSION := 3
 const AXES := [&"throttle", &"yaw", &"pitch", &"roll"]
 var device_id := 0
 var deadzone := 0.04
@@ -14,6 +14,11 @@ var bf_rate_expo := 0.20
 var bf_yaw_rate := 0.85
 var bf_yaw_super_rate := 0.65
 var motor_output_limit := 0.38
+var rate_type := "Betaflight"
+var flight_mode := "Acro"
+var camera_mode := "Chase"
+var slow_motion := 1.0
+var aux_buttons := {"reset": 4, "slow_motion": 5, "camera": 6, "flight_mode": 7}
 var throttle_mid := 0.35
 var throttle_expo := 0.30
 var axis_rates := {
@@ -21,6 +26,12 @@ var axis_rates := {
 	"pitch": {"rc": 1.0, "super": 0.70, "expo": 0.20},
 	"yaw": {"rc": 0.85, "super": 0.65, "expo": 0.10},
 }
+var actual_rates := {
+	"roll": {"center": 220.0, "max": 850.0, "expo": 0.0, "ff": 0.0},
+	"pitch": {"center": 220.0, "max": 850.0, "expo": 0.0, "ff": 0.0},
+	"yaw": {"center": 220.0, "max": 750.0, "expo": 0.0, "ff": 0.0},
+}
+var level := {"sensitivity": 50.0, "angle_limit": 50.0}
 var physics := {"mass": 1.5, "gravity": 1.0, "thrust": 1.0, "drag_low": 0.06, "drag_high": 0.32, "turbulence": 0.0}
 var camera := {"angle": 15.0, "fov": 100.0, "follow_distance": 9.0, "follow_height": 4.0}
 var mappings := {
@@ -67,7 +78,7 @@ func set_mapping(control: StringName, axis: int, minimum: float, center: float, 
 	save_profile()
 	profile_changed.emit()
 func save_profile() -> void:
-	var flight := {"bf_rc_rate": bf_rc_rate, "bf_super_rate": bf_super_rate, "bf_rate_expo": bf_rate_expo, "bf_yaw_rate": bf_yaw_rate, "bf_yaw_super_rate": bf_yaw_super_rate, "motor_output_limit": motor_output_limit, "throttle_mid": throttle_mid, "throttle_expo": throttle_expo, "axis_rates": axis_rates, "physics": physics, "camera": camera}
+	var flight := {"bf_rc_rate": bf_rc_rate, "bf_super_rate": bf_super_rate, "bf_rate_expo": bf_rate_expo, "bf_yaw_rate": bf_yaw_rate, "bf_yaw_super_rate": bf_yaw_super_rate, "motor_output_limit": motor_output_limit, "throttle_mid": throttle_mid, "throttle_expo": throttle_expo, "axis_rates": axis_rates, "actual_rates": actual_rates, "level": level, "physics": physics, "camera": camera, "rate_type": rate_type, "flight_mode": flight_mode, "camera_mode": camera_mode, "slow_motion": slow_motion, "aux_buttons": aux_buttons}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file: file.store_string(JSON.stringify({"version": PROFILE_VERSION, "device_id": device_id, "deadzone": deadzone, "expo": expo, "mappings": mappings, "flight": flight}, "\t"))
 func load_profile() -> void:
@@ -91,10 +102,22 @@ func load_profile() -> void:
 	motor_output_limit = float(flight.get("motor_output_limit", motor_output_limit))
 	throttle_mid = float(flight.get("throttle_mid", throttle_mid))
 	throttle_expo = float(flight.get("throttle_expo", throttle_expo))
+	rate_type = String(flight.get("rate_type", rate_type))
+	flight_mode = String(flight.get("flight_mode", flight_mode))
+	camera_mode = String(flight.get("camera_mode", camera_mode))
+	slow_motion = float(flight.get("slow_motion", slow_motion))
 	var loaded_rates = flight.get("axis_rates", {})
 	if loaded_rates is Dictionary:
 		for axis_name in ["roll", "pitch", "yaw"]:
 			if loaded_rates.has(axis_name): axis_rates[axis_name] = loaded_rates[axis_name]
+	var loaded_actual = flight.get("actual_rates", {})
+	if loaded_actual is Dictionary:
+		for axis_name in ["roll", "pitch", "yaw"]:
+			if loaded_actual.has(axis_name): actual_rates[axis_name] = loaded_actual[axis_name]
+	var loaded_level = flight.get("level", {})
+	if loaded_level is Dictionary: level.merge(loaded_level, true)
+	var loaded_aux = flight.get("aux_buttons", {})
+	if loaded_aux is Dictionary: aux_buttons.merge(loaded_aux, true)
 	var loaded_physics = flight.get("physics", {})
 	if loaded_physics is Dictionary: physics.merge(loaded_physics, true)
 	var loaded_camera = flight.get("camera", {})
@@ -114,5 +137,26 @@ func set_physics_value(key: String, value: float) -> void:
 	profile_changed.emit()
 func set_camera_value(key: String, value: float) -> void:
 	camera[key] = value
+	save_profile()
+	profile_changed.emit()
+
+func set_general_value(key: String, value: Variant) -> void:
+	set(key, value)
+	save_profile()
+	profile_changed.emit()
+func reset_defaults() -> void:
+	if FileAccess.file_exists(SAVE_PATH): DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+	device_id = 0
+	deadzone = 0.04
+	rate_type = "Betaflight"
+	flight_mode = "Acro"
+	camera_mode = "Chase"
+	slow_motion = 1.0
+	motor_output_limit = 0.38
+	axis_rates = {"roll":{"rc":1.0,"super":0.70,"expo":0.20},"pitch":{"rc":1.0,"super":0.70,"expo":0.20},"yaw":{"rc":0.85,"super":0.65,"expo":0.10}}
+	actual_rates = {"roll":{"center":220.0,"max":850.0,"expo":0.0,"ff":0.0},"pitch":{"center":220.0,"max":850.0,"expo":0.0,"ff":0.0},"yaw":{"center":220.0,"max":750.0,"expo":0.0,"ff":0.0}}
+	level = {"sensitivity":50.0,"angle_limit":50.0}
+	physics = {"mass":1.5,"gravity":1.0,"thrust":1.0,"drag_low":0.06,"drag_high":0.32,"turbulence":0.0}
+	camera = {"angle":30.0,"fov":120.0,"follow_distance":9.0,"follow_height":4.0}
 	save_profile()
 	profile_changed.emit()

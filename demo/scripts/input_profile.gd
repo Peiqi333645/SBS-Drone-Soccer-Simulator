@@ -34,7 +34,7 @@ func _ready() -> void:
 func request_calibration() -> void:
 	calibration_requested = true
 func consume_calibration_request() -> bool:
-	var requested := calibration_requested
+	var requested: bool = calibration_requested
 	calibration_requested = false
 	return requested
 func has_saved_profile() -> bool:
@@ -49,8 +49,8 @@ func raw_axis(index: int) -> float:
 func value(control: StringName) -> float:
 	var map: Dictionary = mappings.get(String(control), {})
 	if map.is_empty(): return 0.0
-	var raw := raw_axis(int(map.axis))
-	var center := float(map.center)
+	var raw: float = raw_axis(int(map.axis))
+	var center: float = float(map.center)
 	var normalized: float
 	if raw >= center:
 		normalized = inverse_lerp(center, max(float(map.max), center + 0.01), raw)
@@ -59,8 +59,8 @@ func value(control: StringName) -> float:
 	normalized = clamp(normalized, -1.0, 1.0)
 	if bool(map.invert): normalized *= -1.0
 	if abs(normalized) <= deadzone: return 0.0
-	var dz := (abs(normalized) - deadzone) / (1.0 - deadzone)
-	return sign(normalized) * dz
+	var dz: float = (absf(normalized) - deadzone) / (1.0 - deadzone)
+	return signf(normalized) * dz
 func set_mapping(control: StringName, axis: int, minimum: float, center: float, maximum: float, invert: bool) -> void:
 	mappings[String(control)] = {"axis": axis, "min": minimum, "center": center, "max": maximum, "invert": invert}
 	save_profile()

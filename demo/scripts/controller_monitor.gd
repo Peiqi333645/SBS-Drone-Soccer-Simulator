@@ -3,7 +3,7 @@ extends Control
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.018, 0.024, 0.032, 1.0), true)
 	var half: float = size.x * 0.5
-	_draw_stick(Rect2(10, 24, half - 20, size.y - 34), InputProfile.value(&"yaw"), InputProfile.value(&"throttle"), "偏航 / 油门")
+	_draw_stick(Rect2(10, 24, half - 20, size.y - 34), InputProfile.value(&"yaw"), -InputProfile.value(&"throttle"), "偏航 / 油门")
 	_draw_stick(Rect2(half + 10, 24, half - 20, size.y - 34), InputProfile.value(&"roll"), -InputProfile.value(&"pitch"), "横滚 / 俯仰")
 	var status := "%s  ·  %s  ·  %.2fx" % [InputProfile.flight_mode, InputProfile.camera_mode, InputProfile.slow_motion]
 	draw_string(ThemeDB.fallback_font, Vector2(10, 17), status, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("ffd46a"))

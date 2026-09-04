@@ -11,6 +11,7 @@ extends Camera3D
 @export var snap_distance: float = 22.0
 
 var _backward := Vector3.BACK
+var orbit_degrees := 0.0
 
 
 func _ready() -> void:
@@ -42,7 +43,11 @@ func _flat_backward() -> Vector3:
 	back.y = 0.0
 	if back.length_squared() < 0.001:
 		return _backward
-	return back.normalized()
+	return back.normalized().rotated(Vector3.UP, deg_to_rad(orbit_degrees))
+
+func adjust_view(orbit_delta: float, distance_delta: float) -> void:
+	orbit_degrees = wrapf(orbit_degrees + orbit_delta, -180.0, 180.0)
+	follow_distance = clampf(follow_distance + distance_delta, 3.5, 14.0)
 
 
 func _snap_to_target() -> void:

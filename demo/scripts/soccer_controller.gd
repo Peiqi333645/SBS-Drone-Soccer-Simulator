@@ -37,6 +37,8 @@ func _process(delta: float) -> void:
 	var throttle: float = clampf((InputProfile.value(&"throttle") + 1.0) * 0.5, 0.0, 1.0)
 	var response: float = 1.0 - exp(-lerpf(4.0, 16.0, 1.0 - throttle_smoothing) * delta)
 	throttle_smoothed = lerpf(throttle_smoothed, _throttle_curve(throttle), response)
+	# Armed motors keep a small Betaflight-style idle; this prevents dead-prop instability.
+	throttle_smoothed = maxf(throttle_smoothed, InputProfile.motor_idle * InputProfile.motor_output_limit)
 	var input_response: float = 1.0 - exp(-28.0 * delta)
 	roll_filtered = lerpf(roll_filtered, InputProfile.value(&"roll"), input_response)
 	pitch_filtered = lerpf(pitch_filtered, InputProfile.value(&"pitch"), input_response)

@@ -70,7 +70,11 @@ func _process(delta: float) -> void:
 			var altitude_error: float = altitude_target - float(telemetry.get("altitude", 0.0))
 			thrust = clampf(_throttle_curve(0.5) + altitude_error * 0.055 - vertical_speed * 0.035, 0.0, InputProfile.motor_output_limit)
 		drone.set_attitude_setpoint(roll_filtered * angle_limit, pitch_filtered * angle_limit, yaw_rate, thrust)
-	if drone.global_position.y < -2.0 or drone.global_position.y > 60.0: game.reset_drone()
+	if drone.global_position.y < -2.0 or drone.global_position.y > 60.0:
+		game.reset_drone()
+	elif drone.angular_velocity.length() > 45.0 or drone.linear_velocity.length() > 100.0:
+		game.set_status("检测到异常刚体状态，已安全复位")
+		game.reset_drone()
 func _command_rate(axis_name: String, stick: float) -> float:
 	if InputProfile.rate_type == "Actual":
 		var values: Dictionary = InputProfile.actual_rates[axis_name]

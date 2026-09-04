@@ -4,12 +4,14 @@ extends Node
 @export var controller_path: NodePath
 @export var chase_camera_path: NodePath
 @export var fpv_camera_path: NodePath
+@export var observer_camera_path: NodePath
 @export var arena_path: NodePath
 
 var drone: DroneBody
 var controller: Node
 var chase_camera: Camera3D
 var fpv_camera: Camera3D
+var observer_camera: Camera3D
 var input_blocked := false
 var score := [0, 0]
 var elapsed := 0.0
@@ -28,6 +30,7 @@ func _ready() -> void:
 	controller = get_node(controller_path)
 	chase_camera = get_node(chase_camera_path) as Camera3D
 	fpv_camera = get_node(fpv_camera_path) as Camera3D
+	observer_camera = get_node(observer_camera_path) as Camera3D
 	get_node(arena_path).goal_scored.connect(_on_goal_scored)
 	_build_hud()
 	reset_drone()
@@ -316,12 +319,22 @@ func reset_drone() -> void:
 
 
 func toggle_camera() -> void:
-	if chase_camera.current:
+	var modes := ["Chase", "FPV", "LOS"]
+	var index := modes.find(InputProfile.camera_mode)
+	set_camera_mode(modes[(index + 1) % modes.size()])
+
+func set_camera_mode(mode: String) -> void:
+	InputProfile.camera_mode = mode
+	InputProfile.save_profile()
+	if mode == "FPV":
 		fpv_camera.current = true
 		set_status("FPV 第一视角")
+	elif mode == "LOS":
+		observer_camera.current = true
+		set_status("目视固定视角")
 	else:
 		chase_camera.current = true
-		set_status("第三人称跟随视角")
+		set_status("第三人称追尾视角")
 
 
 func open_calibration() -> void:

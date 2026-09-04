@@ -274,8 +274,6 @@ RigidBodyState DroneBody::_godot_to_sim_state(
     Transform3D xf = gs->get_transform();
     s.position = _gv3_to_sim(xf.origin);
     s.velocity = _gv3_to_sim(gs->get_linear_velocity());
-    // Angular velocity from Godot is in local (body) frame
-    s.angular_velocity = _gv3_to_sim(gs->get_angular_velocity());
     s.mass = static_cast<double>(get_mass());
 
     // Convert Godot Basis to quaternion (Shepperd method).
@@ -304,6 +302,13 @@ RigidBodyState DroneBody::_godot_to_sim_state(
                           0.25*s4, (b[1][0]-b[0][1])/s4 };
     }
     s.orientation = s.orientation.normalized();
+
+    // Godot reports angular velocity in WORLD coordinates. Rotor gyroscopic
+    // terms and the rate controller require BODY coordinates. Feeding world
+    // rates directly into the PID cross-couples roll/pitch after the craft
+    // tilts and can create an unrecoverable spin.
+    const Vec3d omega_world = _gv3_to_sim(gs->get_angular_velocity());
+    s.angular_velocity = s.orientation.conjugate().rotate(omega_world);
     return s;
 }
 

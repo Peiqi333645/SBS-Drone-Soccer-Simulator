@@ -2,6 +2,7 @@ extends CanvasLayer
 const CONTROLS := [&"roll", &"pitch", &"yaw", &"throttle"]
 const LABELS := ["ROLL 横滚", "PITCH 俯仰", "YAW 偏航", "THROTTLE 油门"]
 const SAMPLE_SECONDS := 4.0
+const RAW_AXIS_COUNT := 16
 @export var game_path: NodePath
 var game: Node
 var device: OptionButton
@@ -30,7 +31,7 @@ func _process(delta: float) -> void:
 	if visible: _update_live()
 	if not sampling: return
 	sample_time += delta
-	for axis in 8:
+	for axis in RAW_AXIS_COUNT:
 		var raw: float = InputProfile.raw_axis(axis)
 		minima[axis] = minf(minima[axis], raw)
 		maxima[axis] = maxf(maxima[axis], raw)
@@ -80,14 +81,18 @@ func _page(name_value: String) -> VBoxContainer:
 	margin.add_theme_constant_override("margin_right", 30)
 	margin.add_theme_constant_override("margin_top", 24)
 	margin.add_theme_constant_override("margin_bottom", 24)
-	page.add_child(margin)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	page.add_child(scroll)
+	scroll.add_child(margin)
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var content := VBoxContainer.new()
 	content.add_theme_constant_override("separation", 14)
 	margin.add_child(content)
 	return page
 
 func _content(page: VBoxContainer) -> VBoxContainer:
-	return page.get_child(0).get_child(0) as VBoxContainer
+	return page.get_child(0).get_child(0).get_child(0) as VBoxContainer
 
 func _controller_page() -> VBoxContainer:
 	var page := _page("遥控器")
@@ -106,7 +111,7 @@ func _controller_page() -> VBoxContainer:
 	progress.show_percentage = false
 	body.add_child(progress)
 	var raw_title := Label.new()
-	raw_title.text = "控制器原始输入（AXIS 0—7）"
+	raw_title.text = "控制器原始输入（AXIS 0—15）"
 	raw_title.add_theme_font_size_override("font_size", 18)
 	body.add_child(raw_title)
 	var raw_grid := GridContainer.new()
@@ -117,7 +122,7 @@ func _controller_page() -> VBoxContainer:
 		var label := Label.new()
 		label.name = "Axis%d" % axis
 		label.text = "AXIS-%d   0.000" % axis
-		label.custom_minimum_size.x = 230
+		label.custom_minimum_size.x = 210
 		raw_grid.add_child(label)
 	var aux_title := Label.new()
 	aux_title.text = "辅助控制映射"
@@ -142,6 +147,26 @@ func _controller_page() -> VBoxContainer:
 		button_label.custom_minimum_size = Vector2(35, 28)
 		button_grid.add_child(button_label)
 		raw_button_labels.append(button_label)
+	var quick_modes := HBoxContainer.new()
+	body.add_child(quick_modes)
+	var mode_caption := Label.new()
+	mode_caption.text = "控制状态"
+	mode_caption.custom_minimum_size.x = 110
+	quick_modes.add_child(mode_caption)
+	for mode_name in ["Acro", "Angle", "Altitude"]:
+		var mode_button := Button.new()
+		mode_button.text = mode_name
+		mode_button.pressed.connect(_set_flight_mode.bind(mode_name))
+		quick_modes.add_child(mode_button)
+	for camera_name in ["Chase", "FPV", "LOS"]:
+		var camera_button := Button.new()
+		camera_button.text = camera_name
+		camera_button.pressed.connect(_set_camera_mode.bind(camera_name))
+		quick_modes.add_child(camera_button)
+	var reset_button := Button.new()
+	reset_button.text = "恢复全部默认设置"
+	reset_button.pressed.connect(_reset_defaults)
+	quick_modes.add_child(reset_button)
 	monitor = preload("res://demo/scripts/controller_monitor.gd").new()
 	monitor.custom_minimum_size = Vector2(360, 150)
 	status_split.add_child(monitor)
@@ -155,16 +180,22 @@ func _add_channel(parent: VBoxContainer, index: int) -> void:
 	label.text = LABELS[index]
 	label.custom_minimum_size.x = 155
 	card.add_child(label)
+	var axis_choice := OptionButton.new()
+	axis_choice.custom_minimum_size.x = 105
+	for axis_index in RAW_AXIS_COUNT: axis_choice.add_item("AXIS-%d" % axis_index, axis_index)
+	axis_choice.select(clampi(int(InputProfile.mappings[String(CONTROLS[index])].axis), 0, RAW_AXIS_COUNT - 1))
+	axis_choice.item_selected.connect(_axis_changed.bind(axis_choice, index))
+	card.add_child(axis_choice)
 	var bar := ProgressBar.new()
 	bar.min_value = -100
 	bar.max_value = 100
 	bar.show_percentage = false
-	bar.custom_minimum_size = Vector2(430, 38)
+	bar.custom_minimum_size = Vector2(255, 38)
 	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card.add_child(bar)
 	bars.append(bar)
 	var value := Label.new()
-	value.custom_minimum_size.x = 145
+	value.custom_minimum_size.x = 115
 	card.add_child(value)
 	values.append(value)
 	var invert := CheckButton.new()
@@ -172,6 +203,15 @@ func _add_channel(parent: VBoxContainer, index: int) -> void:
 	invert.button_pressed = bool(InputProfile.mappings[String(CONTROLS[index])].invert)
 	invert.toggled.connect(_invert_changed.bind(index))
 	card.add_child(invert)
+	var dz := SpinBox.new()
+	dz.prefix = "死区 "
+	dz.min_value = 0.0
+	dz.max_value = 0.30
+	dz.step = 0.01
+	dz.value = float(InputProfile.mappings[String(CONTROLS[index])].get("deadzone", InputProfile.deadzone))
+	dz.custom_minimum_size.x = 105
+	dz.value_changed.connect(_deadzone_changed.bind(index))
+	card.add_child(dz)
 	var identify := Button.new()
 	identify.text = "识别/校准"
 	identify.custom_minimum_size.x = 115
@@ -221,6 +261,7 @@ func _rate_page() -> VBoxContainer:
 	level_title.add_theme_color_override("font_color", Color("9fb8c8"))
 	table.add_child(level_title)
 	_add_dict_slider(table, "自稳灵敏度", "level", "sensitivity", 10.0, 100.0, float(InputProfile.level.sensitivity))
+	_add_dict_slider(table, "电机怠速", "general", "motor_idle", 0.02, 0.12, InputProfile.motor_idle)
 	_add_dict_slider(table, "角度限制", "level", "angle_limit", 15.0, 85.0, float(InputProfile.level.angle_limit))
 	var preset := HBoxContainer.new()
 	table.add_child(preset)
@@ -403,7 +444,7 @@ func _update_live() -> void:
 		var label := grid.get_node("Axis%d" % axis) as Label
 		label.text = "AXIS-%d   %+.3f" % [axis, InputProfile.raw_axis(axis)]
 	for button_index in raw_button_labels.size():
-		var pressed := InputProfile.device_id in InputProfile.connected_devices() and Input.is_joy_button_pressed(InputProfile.device_id, button_index)
+		var pressed: bool = InputProfile.device_id in InputProfile.connected_devices() and Input.is_joy_button_pressed(InputProfile.device_id, button_index)
 		raw_button_labels[button_index].modulate = Color("ffd23f") if pressed else Color("75838b")
 	if monitor: monitor.queue_redraw()
 func _start_sample(index: int) -> void:
@@ -412,7 +453,7 @@ func _start_sample(index: int) -> void:
 	sampling = true
 	sample_time = 0.0
 	progress.value = 0
-	baseline.resize(8); minima.resize(8); maxima.resize(8)
+	baseline.resize(RAW_AXIS_COUNT); minima.resize(RAW_AXIS_COUNT); maxima.resize(RAW_AXIS_COUNT)
 	for axis in 8:
 		baseline[axis] = InputProfile.raw_axis(axis)
 		minima[axis] = baseline[axis]
@@ -485,3 +526,32 @@ func _profile_changed(value: float, group: String, key: String, number: Label, s
 		InputProfile.set(key, value)
 		InputProfile.save_profile()
 		InputProfile.profile_changed.emit()
+
+func _axis_changed(_selected: int, choice: OptionButton, index: int) -> void:
+	var key := String(CONTROLS[index])
+	var map: Dictionary = InputProfile.mappings[key]
+	map["axis"] = choice.get_selected_id()
+	InputProfile.mappings[key] = map
+	InputProfile.save_profile()
+	InputProfile.profile_changed.emit()
+
+func _deadzone_changed(value: float, index: int) -> void:
+	var key := String(CONTROLS[index])
+	InputProfile.mappings[key]["deadzone"] = value
+	InputProfile.save_profile()
+	InputProfile.profile_changed.emit()
+
+func _set_flight_mode(mode: String) -> void:
+	InputProfile.flight_mode = mode
+	InputProfile.save_profile()
+	game.set_status("飞行模式：" + mode)
+
+func _set_camera_mode(mode: String) -> void:
+	InputProfile.camera_mode = mode
+	InputProfile.save_profile()
+	game.set_camera_mode(mode)
+
+func _reset_defaults() -> void:
+	InputProfile.reset_defaults()
+	game.set_camera_mode(InputProfile.camera_mode)
+	game.set_status("已恢复默认设置；重新打开设置可查看全部默认值")

@@ -118,7 +118,7 @@ func _controller_page() -> VBoxContainer:
 	raw_grid.name = "RawGrid"
 	raw_grid.columns = 4
 	body.add_child(raw_grid)
-	for axis in 8:
+	for axis in RAW_AXIS_COUNT:
 		var label := Label.new()
 		label.name = "Axis%d" % axis
 		label.text = "AXIS-%d   0.000" % axis
@@ -440,7 +440,7 @@ func _update_live() -> void:
 		bars[i].value = InputProfile.value(CONTROLS[i]) * 100.0
 		values[i].text = "AXIS-%d  %+.0f" % [int(map.axis), bars[i].value]
 	var grid := device.get_parent().get_node("RawGrid") as GridContainer
-	for axis in 8:
+	for axis in RAW_AXIS_COUNT:
 		var label := grid.get_node("Axis%d" % axis) as Label
 		label.text = "AXIS-%d   %+.3f" % [axis, InputProfile.raw_axis(axis)]
 	for button_index in raw_button_labels.size():
@@ -454,7 +454,7 @@ func _start_sample(index: int) -> void:
 	sample_time = 0.0
 	progress.value = 0
 	baseline.resize(RAW_AXIS_COUNT); minima.resize(RAW_AXIS_COUNT); maxima.resize(RAW_AXIS_COUNT)
-	for axis in 8:
+	for axis in RAW_AXIS_COUNT:
 		baseline[axis] = InputProfile.raw_axis(axis)
 		minima[axis] = baseline[axis]
 		maxima[axis] = baseline[axis]
@@ -464,7 +464,7 @@ func _finish_sample() -> void:
 	sampling = false
 	var best_axis := 0
 	var best_range := 0.0
-	for axis in 8:
+	for axis in RAW_AXIS_COUNT:
 		var travel: float = maxima[axis] - minima[axis]
 		if travel > best_range: best_range = travel; best_axis = axis
 	for button in buttons: button.disabled = false

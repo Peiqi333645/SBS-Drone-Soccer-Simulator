@@ -33,6 +33,7 @@ var actual_rates := {
 	"yaw": {"center": 220.0, "max": 750.0, "expo": 0.0, "ff": 0.0},
 }
 var level := {"sensitivity": 50.0, "angle_limit": 50.0}
+var components := {"led": true, "prop_guards": false}
 var physics := {"mass": 1.5, "gravity": 1.0, "thrust": 1.0, "drag_low": 0.06, "drag_high": 0.32, "turbulence": 0.0, "motor_kv": 2300.0, "voltage": 16.8}
 var camera := {"angle": 15.0, "fov": 100.0, "follow_distance": 9.0, "follow_height": 4.0, "motion_blur": 0.0, "lens_distortion": 0.0}
 var mappings := {
@@ -81,7 +82,7 @@ func set_mapping(control: StringName, axis: int, minimum: float, center: float, 
 	save_profile()
 	profile_changed.emit()
 func save_profile() -> void:
-	var flight := {"bf_rc_rate": bf_rc_rate, "bf_super_rate": bf_super_rate, "bf_rate_expo": bf_rate_expo, "bf_yaw_rate": bf_yaw_rate, "bf_yaw_super_rate": bf_yaw_super_rate, "motor_output_limit": motor_output_limit, "throttle_mid": throttle_mid, "throttle_expo": throttle_expo, "axis_rates": axis_rates, "actual_rates": actual_rates, "level": level, "physics": physics, "camera": camera, "rate_type": rate_type, "flight_mode": flight_mode, "camera_mode": camera_mode, "slow_motion": slow_motion, "motor_idle": motor_idle, "aux_buttons": aux_buttons}
+	var flight := {"bf_rc_rate": bf_rc_rate, "bf_super_rate": bf_super_rate, "bf_rate_expo": bf_rate_expo, "bf_yaw_rate": bf_yaw_rate, "bf_yaw_super_rate": bf_yaw_super_rate, "motor_output_limit": motor_output_limit, "throttle_mid": throttle_mid, "throttle_expo": throttle_expo, "axis_rates": axis_rates, "actual_rates": actual_rates, "level": level, "components": components, "physics": physics, "camera": camera, "rate_type": rate_type, "flight_mode": flight_mode, "camera_mode": camera_mode, "slow_motion": slow_motion, "motor_idle": motor_idle, "aux_buttons": aux_buttons}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file: file.store_string(JSON.stringify({"version": PROFILE_VERSION, "device_id": device_id, "deadzone": deadzone, "expo": expo, "mappings": mappings, "flight": flight}, "\t"))
 func load_profile() -> void:
@@ -120,6 +121,8 @@ func load_profile() -> void:
 			if loaded_actual.has(axis_name): actual_rates[axis_name] = loaded_actual[axis_name]
 	var loaded_level = flight.get("level", {})
 	if loaded_level is Dictionary: level.merge(loaded_level, true)
+	var loaded_components = flight.get("components", {})
+	if loaded_components is Dictionary: components.merge(loaded_components, true)
 	var loaded_aux = flight.get("aux_buttons", {})
 	if loaded_aux is Dictionary: aux_buttons.merge(loaded_aux, true)
 	var loaded_physics = flight.get("physics", {})
@@ -161,6 +164,7 @@ func reset_defaults() -> void:
 	axis_rates = {"roll":{"rc":1.0,"super":0.70,"expo":0.20},"pitch":{"rc":1.0,"super":0.70,"expo":0.20},"yaw":{"rc":0.85,"super":0.65,"expo":0.10}}
 	actual_rates = {"roll":{"center":220.0,"max":850.0,"expo":0.0,"ff":0.0},"pitch":{"center":220.0,"max":850.0,"expo":0.0,"ff":0.0},"yaw":{"center":220.0,"max":750.0,"expo":0.0,"ff":0.0}}
 	level = {"sensitivity":50.0,"angle_limit":50.0}
+	components = {"led":true,"prop_guards":false}
 	physics = {"mass":1.5,"gravity":1.0,"thrust":1.0,"drag_low":0.06,"drag_high":0.32,"turbulence":0.0,"motor_kv":2300.0,"voltage":16.8}
 	camera = {"angle":30.0,"fov":120.0,"follow_distance":9.0,"follow_height":4.0,"motion_blur":0.0,"lens_distortion":0.0}
 	save_profile()

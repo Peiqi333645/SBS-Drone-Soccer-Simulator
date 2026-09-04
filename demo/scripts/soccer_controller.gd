@@ -1,7 +1,7 @@
 extends Node
 @export var drone_path: NodePath
 @export var game_path: NodePath
-@export_range(0.0, 1.0, 0.01) var throttle_smoothing := 0.30
+@export_range(0.0, 1.0, 0.01) var throttle_smoothing := 0.08
 var drone: DroneBody
 var game: Node
 var armed := false
@@ -43,7 +43,9 @@ func _process(delta: float) -> void:
 	throttle_smoothed = lerpf(throttle_smoothed, _throttle_curve(throttle), response)
 	# Armed motors keep a small Betaflight-style idle; this prevents dead-prop instability.
 	throttle_smoothed = maxf(throttle_smoothed, InputProfile.motor_idle * InputProfile.motor_output_limit)
-	var input_response: float = 1.0 - exp(-28.0 * delta)
+	# 65 Hz command response keeps the radio connected to the craft without
+	# injecting single-frame HID noise. This feels like an FC, not a camera rig.
+	var input_response: float = 1.0 - exp(-65.0 * delta)
 	roll_filtered = lerpf(roll_filtered, InputProfile.value(&"roll"), input_response)
 	pitch_filtered = lerpf(pitch_filtered, InputProfile.value(&"pitch"), input_response)
 	yaw_filtered = lerpf(yaw_filtered, InputProfile.value(&"yaw"), input_response)

@@ -15,34 +15,14 @@ func _ready() -> void:
 
 
 func _build_background() -> void:
-	var background := ColorRect.new()
+	var background := preload("res://demo/scripts/hex_background.gd").new()
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	background.color = Color("071722")
 	add_child(background)
-
-	var sky := ColorRect.new()
-	sky.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	sky.offset_bottom = 360
-	sky.color = Color("164d6b")
-	background.add_child(sky)
-
-	var horizon := ColorRect.new()
-	horizon.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	horizon.offset_top = 300
-	horizon.offset_bottom = 510
-	horizon.color = Color("2d6e75")
-	background.add_child(horizon)
-
-	var field := ColorRect.new()
-	field.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	field.offset_top = -360
-	field.color = Color("163c38")
-	background.add_child(field)
 
 	var accent := ColorRect.new()
 	accent.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	accent.offset_top = -8
-	accent.color = Color("e9ad31")
+	accent.color = Color("d90057")
 	background.add_child(accent)
 
 
@@ -64,21 +44,21 @@ func _build_menu() -> void:
 	layout.add_child(intro)
 	var badge := Label.new()
 	badge.text = "SBS  ·  DRONE SOCCER"
-	badge.add_theme_color_override("font_color", Color("67d8e8"))
+	badge.add_theme_color_override("font_color", Color("ffca14"))
 	badge.add_theme_font_size_override("font_size", 20)
 	intro.add_child(badge)
 	var title := Label.new()
-	title.text = "开放式无人机足球\n训练模拟器"
+	title.text = "SBS FPV\n穿越机训练模拟器"
 	title.add_theme_font_size_override("font_size", 58)
 	title.add_theme_color_override("font_color", Color("f4fbff"))
 	intro.add_child(title)
 	var subtitle := Label.new()
-	subtitle.text = "开放户外球场 · 稳定跟随镜头 · USB 遥控器训练"
+	subtitle.text = "真实 Acro 手感 · Betaflight Rate · USB 遥控器校准"
 	subtitle.add_theme_font_size_override("font_size", 21)
 	subtitle.add_theme_color_override("font_color", Color("a8c5cd"))
 	intro.add_child(subtitle)
 	var feature := Label.new()
-	feature.text = "● 开放式双球门场地    ● FPV / 航向跟随视角    ● 高度与速度遥测"
+	feature.text = "● FPV / 跟随 / 目视视角    ● 独立通道映射    ● 400 Hz 物理"
 	feature.add_theme_font_size_override("font_size", 17)
 	feature.add_theme_color_override("font_color", Color("75a6b0"))
 	intro.add_child(feature)
@@ -93,8 +73,8 @@ func _build_menu() -> void:
 	var card := PanelContainer.new()
 	card.custom_minimum_size = Vector2(430, 0)
 	var card_style := StyleBoxFlat.new()
-	card_style.bg_color = Color(0.035, 0.10, 0.13, 0.96)
-	card_style.border_color = Color("235461")
+	card_style.bg_color = Color(0.08, 0.08, 0.095, 0.96)
+	card_style.border_color = Color("595765")
 	card_style.set_border_width_all(1)
 	card_style.set_corner_radius_all(18)
 	card.add_theme_stylebox_override("panel", card_style)

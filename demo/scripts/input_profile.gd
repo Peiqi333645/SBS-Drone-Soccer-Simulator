@@ -2,6 +2,7 @@ extends Node
 
 signal profile_changed
 const SAVE_PATH := "user://sbs_controller_profile.json"
+const PROFILE_VERSION := 2
 const AXES := [&"throttle", &"yaw", &"pitch", &"roll"]
 var device_id := 0
 var deadzone := 0.04
@@ -68,11 +69,12 @@ func set_mapping(control: StringName, axis: int, minimum: float, center: float, 
 func save_profile() -> void:
 	var flight := {"bf_rc_rate": bf_rc_rate, "bf_super_rate": bf_super_rate, "bf_rate_expo": bf_rate_expo, "bf_yaw_rate": bf_yaw_rate, "bf_yaw_super_rate": bf_yaw_super_rate, "motor_output_limit": motor_output_limit, "throttle_mid": throttle_mid, "throttle_expo": throttle_expo, "axis_rates": axis_rates, "physics": physics, "camera": camera}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	if file: file.store_string(JSON.stringify({"device_id": device_id, "deadzone": deadzone, "expo": expo, "mappings": mappings, "flight": flight}, "\t"))
+	if file: file.store_string(JSON.stringify({"version": PROFILE_VERSION, "device_id": device_id, "deadzone": deadzone, "expo": expo, "mappings": mappings, "flight": flight}, "\t"))
 func load_profile() -> void:
 	if not FileAccess.file_exists(SAVE_PATH): return
 	var parsed = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
 	if parsed is not Dictionary: return
+	var profile_version: int = int(parsed.get("version", 1))
 	device_id = int(parsed.get("device_id", device_id))
 	deadzone = float(parsed.get("deadzone", deadzone))
 	expo = float(parsed.get("expo", expo))
@@ -97,6 +99,10 @@ func load_profile() -> void:
 	if loaded_physics is Dictionary: physics.merge(loaded_physics, true)
 	var loaded_camera = flight.get("camera", {})
 	if loaded_camera is Dictionary: camera.merge(loaded_camera, true)
+	if profile_version < PROFILE_VERSION:
+		physics["drag_low"] = 0.06
+		physics["drag_high"] = 0.32
+		save_profile()
 
 func set_rate_value(axis_name: String, key: String, value: float) -> void:
 	axis_rates[axis_name][key] = value

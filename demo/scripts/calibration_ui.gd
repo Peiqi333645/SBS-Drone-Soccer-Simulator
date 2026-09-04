@@ -13,8 +13,10 @@ var bars: Array[ProgressBar] = []
 var values: Array[Label] = []
 var buttons: Array[Button] = []
 var aux_labels := {}
+var aux_state_labels := {}
 var aux_sampling := false
 var current_aux := ""
+var aux_baseline: Array[float] = []
 var monitor: Control
 var curve: Control
 var current := -1
@@ -37,13 +39,24 @@ func _process(delta: float) -> void:
 	if aux_sampling:
 		for button_index in 32:
 			if InputProfile.device_id in InputProfile.connected_devices() and Input.is_joy_button_pressed(InputProfile.device_id, button_index):
-				InputProfile.aux_buttons[current_aux] = button_index
+				InputProfile.aux_buttons[current_aux] = {"type":"button", "index":button_index}
 				InputProfile.save_profile()
 				aux_labels[current_aux].text = "BUTTON-%d" % (button_index + 1)
 				hint.text = "完成：已识别 %s 为 BUTTON-%d" % [current_aux, button_index + 1]
 				aux_sampling = false
 				for button in buttons: button.disabled = false
 				break
+		if aux_sampling:
+			for axis_index in RAW_AXIS_COUNT:
+				var raw_aux := InputProfile.raw_axis(axis_index)
+				if absf(raw_aux - aux_baseline[axis_index]) > 0.45:
+					InputProfile.aux_buttons[current_aux] = {"type":"axis", "index":axis_index, "threshold":(raw_aux + aux_baseline[axis_index]) * 0.5, "active_high":raw_aux > aux_baseline[axis_index]}
+					InputProfile.save_profile()
+					aux_labels[current_aux].text = "AXIS-%d" % (axis_index + 1)
+					hint.text = "完成：%s 已映射到 AXIS-%d" % [current_aux, axis_index + 1]
+					aux_sampling = false
+					for identify_button in buttons: identify_button.disabled = false
+					break
 	if not sampling: return
 	sample_time += delta
 	for axis in RAW_AXIS_COUNT:
@@ -139,8 +152,9 @@ func _controller_page() -> VBoxContainer:
 	left.add_child(hint)
 	for i in CONTROLS.size(): _add_channel(left, i)
 	_add_section_title(left, "开关通道 · 全部通过识别完成")
+	_add_aux_identify(left, "解锁", "arm")
+	_add_aux_identify(left, "锁定", "disarm")
 	_add_aux_identify(left, "重置飞机", "reset")
-	_add_aux_identify(left, "慢动作", "slow_motion")
 	_add_aux_identify(left, "切换相机", "camera")
 	_add_aux_identify(left, "切换飞行模式", "flight_mode")
 	progress = ProgressBar.new()
@@ -148,7 +162,7 @@ func _controller_page() -> VBoxContainer:
 	progress.show_percentage = false
 	left.add_child(progress)
 	var right := VBoxContainer.new()
-	right.custom_minimum_size.x = 610
+	right.custom_minimum_size.x = 450
 	right.add_theme_constant_override("separation", 10)
 	split.add_child(right)
 	var state_title := Label.new()
@@ -157,30 +171,29 @@ func _controller_page() -> VBoxContainer:
 	state_title.add_theme_font_size_override("font_size", 24)
 	right.add_child(state_title)
 	monitor = preload("res://demo/scripts/controller_monitor.gd").new()
-	monitor.custom_minimum_size = Vector2(590, 360)
+	monitor.custom_minimum_size = Vector2(430, 330)
 	right.add_child(monitor)
-	var quick_modes := HBoxContainer.new()
-	right.add_child(quick_modes)
-	for mode_name in ["Acro 手动", "Angle 自稳", "Altitude 定高"]:
-		var mode_button := Button.new()
-		mode_button.text = mode_name
-		mode_button.pressed.connect(_set_flight_mode.bind(mode_name.get_slice(" ", 0)))
-		quick_modes.add_child(mode_button)
-	for camera_name in ["FPV 第一视角", "Chase 追尾", "LOS 目视跟随"]:
-		var camera_button := Button.new()
-		camera_button.text = camera_name
-		camera_button.pressed.connect(_set_camera_mode.bind(camera_name.get_slice(" ", 0)))
-		quick_modes.add_child(camera_button)
-	var actions := HBoxContainer.new()
+	var switch_grid := GridContainer.new()
+	switch_grid.columns = 2
+	right.add_child(switch_grid)
+	for switch_item in [["arm", "解锁"], ["disarm", "锁定"], ["reset", "重置"], ["camera", "相机"], ["flight_mode", "飞行模式"]]:
+		var switch_name := Label.new(); switch_name.text = String(switch_item[1]); switch_grid.add_child(switch_name)
+		var switch_state := Label.new(); switch_state.text = "未触发"; switch_state.add_theme_color_override("font_color", Color("777777")); switch_grid.add_child(switch_state)
+		aux_state_labels[String(switch_item[0])] = switch_state
+	var verify_note := Label.new()
+	verify_note.text = "拨动每个摇杆和开关，确认显示方向与实际操作一致。"
+	verify_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	right.add_child(verify_note)
+	var actions := VBoxContainer.new()
 	right.add_child(actions)
 	var all_button := Button.new()
 	all_button.text = "依次校准四通道"
-	all_button.custom_minimum_size = Vector2(260, 52)
+	all_button.custom_minimum_size.y = 52
 	all_button.pressed.connect(_start_full_calibration)
 	actions.add_child(all_button)
 	var reset_button := Button.new()
 	reset_button.text = "重置校准数据"
-	reset_button.custom_minimum_size = Vector2(260, 52)
+	reset_button.custom_minimum_size.y = 52
 	reset_button.pressed.connect(_reset_defaults)
 	actions.add_child(reset_button)
 	return page
@@ -336,8 +349,7 @@ func _add_aux_identify(parent: VBoxContainer, caption: String, action: String) -
 	label.custom_minimum_size.x = 180
 	box.add_child(label)
 	var channel := Label.new()
-	var current_button := int(InputProfile.aux_buttons.get(action, -1))
-	channel.text = "未识别" if current_button < 0 else "BUTTON-%d" % (current_button + 1)
+	channel.text = _aux_mapping_label(InputProfile.aux_buttons.get(action, {}))
 	channel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	channel.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	channel.add_theme_color_override("font_color", Color("f2c800"))
@@ -387,8 +399,7 @@ func _basic_page() -> VBoxContainer:
 	rate_top.add_child(rate_label)
 	var type_choice := OptionButton.new()
 	var rate_names := ["Actual", "Betaflight", "Raceflight", "KISS"]
-	var rate_labels := ["Actual 实际角速度", "Betaflight 穿越机", "Raceflight 竞速", "KISS 平滑"]
-	for rate_name in rate_labels: type_choice.add_item(rate_name)
+	for rate_name in rate_names: type_choice.add_item(rate_name)
 	type_choice.select(maxi(0, rate_names.find(InputProfile.rate_type)))
 	type_choice.item_selected.connect(_rate_type_index_changed.bind(rate_names))
 	rate_top.add_child(type_choice)
@@ -411,18 +422,15 @@ func _basic_page() -> VBoxContainer:
 	curve = preload("res://demo/scripts/rate_curve.gd").new()
 	curve.custom_minimum_size = Vector2(430, 245)
 	rate_split.add_child(curve)
-	var tune_row := HBoxContainer.new()
-	root.add_child(tune_row)
-	_add_compact_setting(tune_row, "自稳灵敏度", "level", "sensitivity", 10.0, 100.0, float(InputProfile.level.sensitivity))
-	_add_compact_setting(tune_row, "角度限制", "level", "angle_limit", 15.0, 85.0, float(InputProfile.level.angle_limit))
-	_add_compact_setting(tune_row, "电机怠速 %", "general", "motor_idle", 0.02, 0.12, InputProfile.motor_idle)
+	_add_profile_slider(root, "自稳灵敏度", "level", "sensitivity", 10.0, 100.0, float(InputProfile.level.sensitivity), "")
+	_add_profile_slider(root, "角度限制", "level", "angle_limit", 15.0, 85.0, float(InputProfile.level.angle_limit), "°")
+	_add_profile_slider(root, "电机怠速", "general", "motor_idle", 0.02, 0.12, InputProfile.motor_idle, "")
 	var camera_header := Label.new()
 	camera_header.text = "摄像头"
 	camera_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	camera_header.add_theme_font_size_override("font_size", 22)
 	root.add_child(camera_header)
-	var camera_grid := GridContainer.new()
-	camera_grid.columns = 2
+	var camera_grid := VBoxContainer.new()
 	root.add_child(camera_grid)
 	_add_profile_slider(camera_grid, "镜头仰角", "camera", "angle", -10, 55, float(InputProfile.camera.angle), "°")
 	_add_profile_slider(camera_grid, "视野 FOV", "camera", "fov", 70, 150, float(InputProfile.camera.fov), "°")
@@ -430,20 +438,6 @@ func _basic_page() -> VBoxContainer:
 	_add_profile_slider(camera_grid, "跟随高度", "camera", "follow_height", 1.5, 10, float(InputProfile.camera.follow_height), " m")
 	_add_profile_slider(camera_grid, "目视跟随距离", "camera", "los_distance", 4, 14, float(InputProfile.camera.los_distance), " m")
 	_add_profile_slider(camera_grid, "目视跟随高度", "camera", "los_height", 1.5, 8, float(InputProfile.camera.los_height), " m")
-	var component_header := Label.new()
-	component_header.text = "组件"
-	component_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	component_header.add_theme_font_size_override("font_size", 22)
-	root.add_child(component_header)
-	var component_row := HBoxContainer.new()
-	root.add_child(component_row)
-	_add_component_toggle(component_row, "LED", "led")
-	_add_component_toggle(component_row, "独立桨叶保护圈", "prop_guards")
-	_add_section_title(root, "机身颜色（即时应用）")
-	_add_color_palette(root, "机架", "body")
-	_add_color_palette(root, "点缀", "accent")
-	_add_color_palette(root, "螺旋桨", "prop")
-	_add_color_palette(root, "LED", "led")
 	return page
 
 func _add_color_palette(parent: Control, caption: String, part: String) -> void:
@@ -485,7 +479,7 @@ func _physics_page() -> VBoxContainer:
 	var page := _page("物理")
 	var body := _content(page)
 	var help := Label.new()
-	help.text = "所有数值都直接写入原生刚体、旋翼和空气动力模型，不是装饰按钮。推荐小型足球机预设：420 g / 2450 KV / 4S。"
+	help.text = "所有数值都直接作用于刚体、旋翼和空气动力模型。推荐从稳定的 420 g / 1450 KV / 4S 开始。"
 	help.add_theme_font_size_override("font_size", 20)
 	body.add_child(help)
 	_add_profile_slider(body, "机体重量（质量与惯性感）", "physics", "mass", 0.20, 1.50, float(InputProfile.physics.mass), " kg")
@@ -501,21 +495,20 @@ func _physics_page() -> VBoxContainer:
 	_add_section_title(body, "预设")
 	var presets := HBoxContainer.new()
 	body.add_child(presets)
-	_add_physics_preset(presets, "小型足球机 420g", 0.42, 2450.0, 1.0, 0.72)
-	_add_physics_preset(presets, "灵活竞速 650g", 0.65, 1950.0, 1.08, 0.85)
-	_add_physics_preset(presets, "训练柔和 500g", 0.50, 2200.0, 0.92, 0.66)
+	_add_physics_preset(presets, "稳定足球机 420g", 0.42, 1450.0, 1.0, 0.68)
+	_add_physics_preset(presets, "灵活竞速 650g", 0.65, 1750.0, 1.05, 0.72)
+	_add_physics_preset(presets, "训练柔和 500g", 0.50, 1200.0, 0.95, 0.62)
 	return page
 
 func _graphics_page() -> VBoxContainer:
 	var page := _page("画质与 OSD")
 	var body := _content(page)
 	_add_section_title(body, "图形设置")
-	_add_choice(body, "画质预设", ["低画质（高帧率）", "中画质", "高画质", "极高画质"], int(InputProfile.graphics.quality), _quality_changed)
-	_add_profile_slider(body, "渲染比例", "graphics", "render_scale", 0.50, 1.25, float(InputProfile.graphics.render_scale), " x")
+	_add_choice(body, "画质预设", ["性能（低配置）", "均衡", "高清", "超清"], int(InputProfile.graphics.quality), _quality_changed)
+	_add_profile_slider(body, "渲染比例", "graphics", "render_scale", 0.50, 1.50, float(InputProfile.graphics.render_scale), " x")
 	_add_dict_toggle(body, "垂直同步 VSync（关闭可降低操作延迟）", "graphics", "vsync")
 	_add_dict_toggle(body, "动态阴影", "graphics", "shadows")
 	_add_dict_toggle(body, "辉光 Glow", "graphics", "glow")
-	_add_dict_toggle(body, "环境光遮蔽 SSAO", "graphics", "ssao")
 	_add_section_title(body, "OSD 屏幕显示")
 	_add_profile_slider(body, "OSD 比例", "osd", "scale", 0.70, 1.60, float(InputProfile.osd.scale), " x")
 	for item in [["显示全部 OSD", "visible"], ["摇杆视图", "sticks"], ["速度", "speed"], ["高度", "altitude"], ["飞行模式", "flight_mode"], ["相机模式", "camera_mode"], ["镜头仰角", "camera_angle"], ["中心点", "reticle"], ["帧数 FPS", "fps"]]:
@@ -558,6 +551,7 @@ func _add_profile_slider(parent: Control, caption: String, group: String, key: S
 	slider.step = 0.01
 	slider.value = value
 	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	slider.custom_minimum_size.y = 34
 	row.add_child(slider)
 	var number := Label.new()
 	number.text = "%.2f%s" % [value, suffix]
@@ -597,7 +591,22 @@ func _update_live() -> void:
 		var map: Dictionary = InputProfile.mappings[String(CONTROLS[i])]
 		bars[i].value = InputProfile.value(CONTROLS[i]) * 100.0
 		values[i].text = "AXIS-%d  %+.0f" % [int(map.axis) + 1, bars[i].value]
+	for action in aux_state_labels:
+		var active := _aux_mapping_active(InputProfile.aux_buttons.get(action, {}))
+		aux_state_labels[action].text = "已触发" if active else "未触发"
+		aux_state_labels[action].add_theme_color_override("font_color", Color("f2b705") if active else Color("777777"))
 	if monitor: monitor.queue_redraw()
+
+func _aux_mapping_active(mapping: Variant) -> bool:
+	if not mapping is Dictionary: return false
+	var map: Dictionary = mapping
+	var index := int(map.get("index", -1))
+	if index < 0: return false
+	if String(map.get("type", "")) == "button": return Input.is_joy_button_pressed(InputProfile.device_id, index)
+	if String(map.get("type", "")) == "axis":
+		var raw := InputProfile.raw_axis(index)
+		return raw >= float(map.get("threshold", 0.0)) if bool(map.get("active_high", true)) else raw <= float(map.get("threshold", 0.0))
+	return false
 func _start_sample(index: int) -> void:
 	if sampling: return
 	current = index
@@ -738,8 +747,17 @@ func _start_aux_sample(action: String, caption: String) -> void:
 	if sampling or aux_sampling: return
 	current_aux = action
 	aux_sampling = true
+	aux_baseline.resize(RAW_AXIS_COUNT)
+	for axis_index in RAW_AXIS_COUNT: aux_baseline[axis_index] = InputProfile.raw_axis(axis_index)
 	for button in buttons: button.disabled = true
-	hint.text = "识别【%s】：请拨动一次对应开关或按键。" % caption
+	hint.text = "识别【%s】：请把遥控器开关拨到另一个位置。支持 AXIS 通道和按键。" % caption
+
+func _aux_mapping_label(mapping: Variant) -> String:
+	if not mapping is Dictionary: return "未识别"
+	var map: Dictionary = mapping
+	var index := int(map.get("index", -1))
+	if index < 0: return "未识别"
+	return ("AXIS-%d" if String(map.get("type", "")) == "axis" else "BUTTON-%d") % (index + 1)
 
 func _dict_toggle_changed(enabled: bool, group: String, key: String) -> void:
 	var settings: Dictionary = InputProfile.get(group)
@@ -751,7 +769,7 @@ func _dict_toggle_changed(enabled: bool, group: String, key: String) -> void:
 func _quality_changed(index: int) -> void:
 	InputProfile.graphics["quality"] = index
 	# Each preset changes real renderer options; users can still override them below.
-	InputProfile.graphics["render_scale"] = [0.65, 0.85, 1.0, 1.25][index]
+	InputProfile.graphics["render_scale"] = [0.60, 0.85, 1.15, 1.50][index]
 	InputProfile.graphics["anti_aliasing"] = [0, 1, 2, 3][index]
 	InputProfile.graphics["shadows"] = index >= 1
 	InputProfile.graphics["glow"] = index >= 2
@@ -785,13 +803,26 @@ func _reference_theme() -> Theme:
 	panel_style.set_border_width_all(3)
 	theme.set_stylebox("panel", "PanelContainer", panel_style)
 	var button_style := StyleBoxFlat.new()
-	button_style.bg_color = Color("565273")
-	button_style.border_color = Color("8b87b0")
+	button_style.bg_color = Color("242424")
+	button_style.border_color = Color("555555")
 	button_style.set_border_width_all(2)
 	theme.set_stylebox("normal", "Button", button_style)
 	var hover_style := button_style.duplicate() as StyleBoxFlat
-	hover_style.bg_color = Color("68638e")
+	hover_style.bg_color = Color("d99f00")
 	theme.set_stylebox("hover", "Button", hover_style)
+	var slider_track := StyleBoxFlat.new()
+	slider_track.bg_color = Color("5a4a12")
+	slider_track.set_corner_radius_all(5)
+	slider_track.content_margin_top = 5
+	slider_track.content_margin_bottom = 5
+	theme.set_stylebox("slider", "HSlider", slider_track)
+	var slider_fill := StyleBoxFlat.new()
+	slider_fill.bg_color = Color("f2b705")
+	slider_fill.set_corner_radius_all(5)
+	slider_fill.content_margin_top = 5
+	slider_fill.content_margin_bottom = 5
+	theme.set_stylebox("grabber_area", "HSlider", slider_fill)
+	theme.set_stylebox("grabber_area_highlight", "HSlider", slider_fill)
 	theme.set_color("font_color", "Label", Color("e8e8e8"))
 	theme.set_color("font_color", "Button", Color("f3f3f3"))
 	theme.set_color("font_color", "OptionButton", Color("f3f3f3"))

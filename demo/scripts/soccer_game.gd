@@ -9,13 +9,13 @@ extends Node
 
 var drone: DroneBody
 var controller: Node
-var chase_camera: Camera3D
+var chase_camera
 var fpv_camera: Camera3D
 var observer_camera: Camera3D
 var input_blocked := false
 var score := [0, 0]
 var elapsed := 0.0
-var status := "已锁定 · 按 Enter 解锁"
+var status := "已锁定 · 请使用已映射的遥控器解锁开关"
 var _score_label: Label
 var _time_label: Label
 var _status_label: Label
@@ -43,6 +43,11 @@ func _ready() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not input_blocked and InputProfile.camera_mode != "FPV":
+		if event.is_action_pressed("ui_left"): chase_camera.adjust_view(-12.0, 0.0)
+		elif event.is_action_pressed("ui_right"): chase_camera.adjust_view(12.0, 0.0)
+		elif event.is_action_pressed("ui_up"): chase_camera.adjust_view(0.0, -0.6)
+		elif event.is_action_pressed("ui_down"): chase_camera.adjust_view(0.0, 0.6)
 	if event.is_action_pressed("ui_cancel"):
 		if get_node("../CalibrationUI").visible:
 			get_node("../CalibrationUI").close_ui()
@@ -65,7 +70,8 @@ func _process(delta: float) -> void:
 		if bool(InputProfile.osd.flight_mode): telemetry_items.append(controller.rate_summary())
 		if bool(InputProfile.osd.camera_mode): telemetry_items.append("视角 " + InputProfile.camera_mode)
 		if bool(InputProfile.osd.camera_angle): telemetry_items.append("镜头 %.0f°" % float(InputProfile.camera.angle))
-		_flight_label.text = "    ".join(telemetry_items)
+		_flight_label.text = "  ·  ".join(telemetry_items.slice(0, 2))
+		if telemetry_items.size() > 2: _flight_label.text += "\n" + "  ·  ".join(telemetry_items.slice(2))
 	if InputProfile.camera_mode == "LOS": _update_los_camera(delta)
 	if _fps_label: _fps_label.text = "FPS\n%d" % Engine.get_frames_per_second()
 	_apply_osd_visibility()
@@ -189,7 +195,7 @@ func _build_hud() -> void:
 	help.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	help.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	help.add_theme_color_override("font_color", Color("a9bdc5"))
-	help.text = "Enter 解锁   R 复位   C 切换视角   K 校准   Esc 菜单"
+	help.text = "遥控器开关解锁   R 复位   C 切换视角   方向键调视角   K 设置"
 	bottom_row.add_child(help)
 
 	_reticle = Label.new()
@@ -299,7 +305,7 @@ func toggle_pause() -> void:
 	var shade := _pause_panel.get_parent()
 	shade.visible = not shade.visible
 	set_input_blocked(shade.visible)
-	set_status("训练已暂停" if shade.visible else "继续训练 · 按 Enter 解锁")
+	set_status("训练已暂停" if shade.visible else "继续训练 · 请使用遥控器解锁开关")
 
 
 func restart_match() -> void:
@@ -342,7 +348,7 @@ func reset_drone() -> void:
 	drone.linear_velocity = Vector3.ZERO
 	drone.angular_velocity = Vector3.ZERO
 	drone.global_transform = Transform3D(Basis.IDENTITY, Vector3(0, 1.4, 0))
-	set_status("已复位 · 按 Enter 解锁")
+	set_status("已复位 · 请使用遥控器解锁开关")
 
 
 func toggle_camera() -> void:

@@ -96,7 +96,10 @@ void DroneBody::_integrate_forces(PhysicsDirectBodyState3D* gstate) {
         auto [tau_r, tau_p, tau_y, thr] = _fc->update(_setpoints, q_frd, w_frd, dt);
 
         // Normalise torque demands (crude scaling — tune per airframe)
-        const double torque_scale = 0.3;
+        // The former 0.3 gain saturated the mixer on sub-500 g quads and could
+        // produce an immediate flip at lift-off. Keep enough authority for
+        // crisp FPV rates without turning tiny gyro errors into full output.
+        const double torque_scale = 0.12;
         throttles = _mixer->mix(
             thr,
             tau_r * torque_scale,

@@ -22,7 +22,7 @@ func _build_background() -> void:
 	var accent := ColorRect.new()
 	accent.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	accent.offset_top = -8
-	accent.color = Color("d90057")
+	accent.color = Color("f2b705")
 	background.add_child(accent)
 
 
@@ -145,7 +145,7 @@ func _build_help() -> void:
 	title.add_theme_font_size_override("font_size", 30)
 	column.add_child(title)
 	var body := Label.new()
-	body.text = "遥控器\n左摇杆：油门 / 偏航　　右摇杆：俯仰 / 横滚\n\n键盘辅助\nEnter 解锁　Backspace 锁定　R 复位　C 切换视角　K 校准\nEsc 暂停与返回主页\n\n训练目标\n控制球形保护架无人机稳定穿过蓝、黄球门。穿门后自动计分并复位。"
+	body.text = "遥控器\n左摇杆：油门 / 偏航　　右摇杆：俯仰 / 横滚\n解锁、锁定与重置均可在控制器设置中识别遥控器开关。\n\n键盘辅助\nR 复位　C 切换视角　方向键旋转及拉近镜头　K 设置\nEsc 暂停与返回主页\n\n训练目标\n控制无人机稳定穿过蓝、黄球门。穿门后自动计分并复位。"
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_theme_font_size_override("font_size", 20)
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL

@@ -20,5 +20,5 @@ func _draw() -> void:
 				points.append(center + Vector2(cos(angle), sin(angle)) * radius)
 			points.append(points[0])
 			draw_polyline(points, Color(0.12, 0.13, 0.19, 0.58), 2.0, true)
-	# Purple floor glow from the reference setup screen.
-	draw_circle(Vector2(size.x * 0.52, size.y * 1.05), size.x * 0.42, Color(0.18, 0.015, 0.30, 0.20))
+	# Warm amber glow keeps the black/yellow visual language without a costly shader.
+	draw_circle(Vector2(size.x * 0.52, size.y * 1.05), size.x * 0.42, Color(0.35, 0.18, 0.0, 0.16))

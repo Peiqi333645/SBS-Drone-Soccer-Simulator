@@ -156,14 +156,17 @@ func _build_stadium() -> void:
 	var concrete := Color("3b383b")
 	var fascia := Color("17151b")
 	var seat_colors := [Color("ff385f"), Color("f08a25"), Color("743fc4"), Color("20c98a")]
+	var quality := int(InputProfile.graphics.get("quality", 1))
+	var tier_count := 1 if quality == 0 else (2 if quality == 1 else 3)
+	var seat_step := 10.0 if quality == 0 else (7.5 if quality == 1 else 5.0)
 	for side: float in [-1.0, 1.0]:
-		for tier in 3:
+		for tier in tier_count:
 			var x: float = side * (18.0 + tier * 3.2)
 			var height: float = 2.0 + tier * 3.1
 			_box(self, "Stand_%s_%d" % [side, tier], Vector3(x, height * 0.5, 0), Vector3(5.8, height, 68.0), concrete, false)
 			_box(self, "Fascia_%s_%d" % [side, tier], Vector3(side * (15.0 + tier * 3.2), height, 0), Vector3(0.35, 0.85, 68.0), fascia, false)
-			for z_index in 13:
-				var z := -30.0 + z_index * 5.0
+			for z_index in int(60.0 / seat_step) + 1:
+				var z := -30.0 + z_index * seat_step
 				var color: Color = seat_colors[(z_index + tier) % seat_colors.size()]
 				_box(self, "Seats_%s_%d_%d" % [side, tier, z_index], Vector3(side * (14.7 + tier * 3.2), height + 0.8, z), Vector3(0.45, 1.1, 3.8), color, false)
 	# End stands leave broad tunnels so the arena reads as open rather than caged.

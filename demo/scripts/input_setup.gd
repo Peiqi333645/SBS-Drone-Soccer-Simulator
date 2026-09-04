@@ -8,10 +8,7 @@ extends Node
 
 func _enter_tree() -> void:
 	# Arm / disarm
-	_add_key("drone_arm",    KEY_ENTER)
-	_add_joy_button("drone_arm",    JOY_BUTTON_START)
 	_add_key("drone_disarm", KEY_BACKSPACE)
-	_add_joy_button("drone_disarm", JOY_BUTTON_B)
 	_add_key("soccer_reset", KEY_R)
 	_add_key("soccer_camera", KEY_C)
 	_add_key("soccer_calibrate", KEY_K)

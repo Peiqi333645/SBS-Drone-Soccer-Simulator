@@ -19,12 +19,13 @@ func _ready() -> void:
 	apply_profile()
 	Engine.time_scale = InputProfile.slow_motion
 func _process(delta: float) -> void:
-	if Input.is_action_just_pressed("drone_arm"): arm()
 	if Input.is_action_just_pressed("drone_disarm"): disarm()
 	if Input.is_action_just_pressed("soccer_reset"): game.reset_drone()
 	if Input.is_action_just_pressed("soccer_camera"): game.toggle_camera()
 	if Input.is_action_just_pressed("soccer_calibrate"): game.open_calibration()
 	if _aux_pressed("reset"): game.reset_drone()
+	if _aux_pressed("arm"): arm()
+	if _aux_pressed("disarm"): disarm()
 	if _aux_pressed("camera"): game.toggle_camera()
 	if _aux_pressed("slow_motion"):
 		InputProfile.slow_motion = 0.35 if InputProfile.slow_motion > 0.5 else 1.0
@@ -39,7 +40,7 @@ func _process(delta: float) -> void:
 		disarm()
 		return
 	var throttle: float = clampf((InputProfile.value(&"throttle") + 1.0) * 0.5, 0.0, 1.0)
-	var response: float = 1.0 - exp(-lerpf(10.0, 42.0, 1.0 - throttle_smoothing) * delta)
+	var response: float = 1.0 - exp(-lerpf(18.0, 70.0, 1.0 - throttle_smoothing) * delta)
 	throttle_smoothed = lerpf(throttle_smoothed, _throttle_curve(throttle), response)
 	# Armed motors keep a small Betaflight-style idle; this prevents dead-prop instability.
 	throttle_smoothed = maxf(throttle_smoothed, InputProfile.motor_idle * InputProfile.motor_output_limit)
@@ -152,7 +153,8 @@ func apply_profile() -> void:
 	var world_environment := game.get_node_or_null("../WorldEnvironment") as WorldEnvironment
 	if world_environment and world_environment.environment:
 		world_environment.environment.glow_enabled = bool(InputProfile.graphics.glow)
-		world_environment.environment.ssao_enabled = bool(InputProfile.graphics.ssao)
+		var forward_renderer := String(ProjectSettings.get_setting("rendering/renderer/rendering_method", "gl_compatibility")) != "gl_compatibility"
+		world_environment.environment.ssao_enabled = bool(InputProfile.graphics.ssao) and forward_renderer
 	var sun := game.get_node_or_null("../Arena/Sun") as DirectionalLight3D
 	if sun: sun.shadow_enabled = bool(InputProfile.graphics.shadows)
 	var body_color := Color(String(InputProfile.colors.body))
@@ -210,13 +212,23 @@ func disarm() -> void:
 func force_disarm() -> void:
 	disarm()
 func _aux_pressed(action: String) -> bool:
-	var button: int = int(InputProfile.aux_buttons.get(action, -1))
-	if button < 0 or InputProfile.device_id not in InputProfile.connected_devices(): return false
-	var down: bool = Input.is_joy_button_pressed(InputProfile.device_id, button)
+	var binding = InputProfile.aux_buttons.get(action, {})
+	if not binding is Dictionary or InputProfile.device_id not in InputProfile.connected_devices(): return false
+	var map: Dictionary = binding
+	var index := int(map.get("index", -1))
+	if index < 0: return false
+	var down := false
+	if String(map.get("type", "none")) == "button":
+		down = Input.is_joy_button_pressed(InputProfile.device_id, index)
+	elif String(map.get("type", "none")) == "axis":
+		var raw := InputProfile.raw_axis(index)
+		var threshold := float(map.get("threshold", 0.0))
+		down = raw >= threshold if bool(map.get("active_high", true)) else raw <= threshold
 	var previous: bool = bool(aux_previous.get(action, false))
 	aux_previous[action] = down
 	return down and not previous
 
 func rate_summary() -> String:
 	var r: Dictionary = InputProfile.axis_rates["roll"]
-	return "%s · %s   R %.2f/%.2f/%.2f   输出 %.0f%%" % [InputProfile.flight_mode, InputProfile.rate_type, float(r.rc), float(r.super), float(r.expo), InputProfile.motor_output_limit * 100.0]
+	var maximum := int(200.0 * float(r.rc) / maxf(0.05, 1.0 - float(r.super)))
+	return "%s · %s · 横滚 %d°/s" % [InputProfile.flight_mode, InputProfile.rate_type, maximum]

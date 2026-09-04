@@ -24,6 +24,9 @@ var _flight_label: Label
 var _toast: Label
 var _pause_panel: PanelContainer
 var _stick_monitor: Control
+var _reticle: Label
+var _fps_label: Label
+var _los_back := Vector3(1.0, 0.0, 1.0).normalized()
 
 
 func _ready() -> void:
@@ -56,7 +59,16 @@ func _process(delta: float) -> void:
 	_status_label.text = status
 	if is_instance_valid(drone) and _flight_label:
 		var telemetry: Dictionary = drone.get_telemetry()
-		_flight_label.text = "高度  %.1f m    速度  %.1f m/s" % [float(telemetry.get("altitude", 0.0)), float(telemetry.get("ground_speed", 0.0))] + "\n" + controller.rate_summary()
+		var telemetry_items: Array[String] = []
+		if bool(InputProfile.osd.altitude): telemetry_items.append("高度 %.1f m" % float(telemetry.get("altitude", 0.0)))
+		if bool(InputProfile.osd.speed): telemetry_items.append("速度 %.1f m/s" % float(telemetry.get("ground_speed", 0.0)))
+		if bool(InputProfile.osd.flight_mode): telemetry_items.append(controller.rate_summary())
+		if bool(InputProfile.osd.camera_mode): telemetry_items.append("视角 " + InputProfile.camera_mode)
+		if bool(InputProfile.osd.camera_angle): telemetry_items.append("镜头 %.0f°" % float(InputProfile.camera.angle))
+		_flight_label.text = "    ".join(telemetry_items)
+	if InputProfile.camera_mode == "LOS": _update_los_camera(delta)
+	if _fps_label: _fps_label.text = "FPS\n%d" % Engine.get_frames_per_second()
+	_apply_osd_visibility()
 
 
 func _build_hud() -> void:
@@ -180,16 +192,24 @@ func _build_hud() -> void:
 	help.text = "Enter 解锁   R 复位   C 切换视角   K 校准   Esc 菜单"
 	bottom_row.add_child(help)
 
-	var reticle := Label.new()
-	reticle.text = "＋"
-	reticle.set_anchors_preset(Control.PRESET_CENTER)
-	reticle.position = Vector2(-15, -22)
-	reticle.size = Vector2(30, 44)
-	reticle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	reticle.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	reticle.add_theme_font_size_override("font_size", 26)
-	reticle.add_theme_color_override("font_color", Color(0.85, 0.96, 1.0, 0.62))
-	layer.add_child(reticle)
+	_reticle = Label.new()
+	_reticle.text = "○"
+	_reticle.set_anchors_preset(Control.PRESET_CENTER)
+	_reticle.position = Vector2(-15, -22)
+	_reticle.size = Vector2(30, 44)
+	_reticle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_reticle.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_reticle.add_theme_font_size_override("font_size", 30)
+	_reticle.add_theme_color_override("font_color", Color(0.94, 0.96, 1.0, 0.82))
+	layer.add_child(_reticle)
+	_fps_label = Label.new()
+	_fps_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_fps_label.position = Vector2(-108, 128)
+	_fps_label.size = Vector2(84, 58)
+	_fps_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_fps_label.add_theme_font_size_override("font_size", 19)
+	_fps_label.add_theme_color_override("font_color", Color("5dff53"))
+	layer.add_child(_fps_label)
 
 	_toast = Label.new()
 	_toast.set_anchors_preset(Control.PRESET_CENTER_TOP)
@@ -338,7 +358,7 @@ func set_camera_mode(mode: String) -> void:
 		set_status("FPV 第一视角")
 	elif mode == "LOS":
 		observer_camera.current = true
-		set_status("目视固定视角")
+		set_status("LOS 目视跟随视角")
 	else:
 		chase_camera.current = true
 		set_status("第三人称追尾视角")
@@ -365,3 +385,23 @@ func set_status(message: String) -> void:
 func _format_time(seconds: float) -> String:
 	var whole := int(seconds)
 	return "%02d:%02d" % [whole / 60, whole % 60]
+
+func _update_los_camera(delta: float) -> void:
+	if not is_instance_valid(drone): return
+	var motion: Vector3 = drone.linear_velocity
+	motion.y = 0.0
+	if motion.length_squared() > 0.5: _los_back = _los_back.lerp(-motion.normalized(), 1.0 - exp(-1.8 * delta)).normalized()
+	var distance := float(InputProfile.camera.los_distance)
+	var height := float(InputProfile.camera.los_height)
+	var desired: Vector3 = drone.global_position + _los_back * distance + Vector3.UP * height
+	observer_camera.global_position = observer_camera.global_position.lerp(desired, 1.0 - exp(-7.0 * delta))
+	observer_camera.look_at(drone.global_position + Vector3.UP * 0.15, Vector3.UP)
+
+func _apply_osd_visibility() -> void:
+	var show_all := bool(InputProfile.osd.visible)
+	if _stick_monitor:
+		_stick_monitor.visible = show_all and bool(InputProfile.osd.sticks)
+		_stick_monitor.scale = Vector2.ONE * float(InputProfile.osd.scale)
+	if _reticle: _reticle.visible = show_all and bool(InputProfile.osd.reticle)
+	if _fps_label: _fps_label.visible = show_all and bool(InputProfile.osd.fps)
+	if _flight_label: _flight_label.visible = show_all and (bool(InputProfile.osd.speed) or bool(InputProfile.osd.altitude) or bool(InputProfile.osd.flight_mode))

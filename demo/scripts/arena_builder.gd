@@ -9,6 +9,8 @@ const RUNOFF_L := 92.0
 
 var blue := Color("2a9dff")
 var yellow := Color("ffd23f")
+var _decor_transforms: Array[Transform3D] = []
+var _decor_colors: Array[Color] = []
 
 
 func _ready() -> void:
@@ -19,6 +21,7 @@ func _ready() -> void:
 	_build_launch_pad()
 	_build_markers()
 	_build_stadium()
+	_flush_decorations()
 	_build_lights()
 
 
@@ -35,7 +38,11 @@ func _material(color: Color, emission := Color.BLACK, roughness := 0.72) -> Stan
 
 func _box(
 	parent: Node, node_name: String, pos: Vector3, size: Vector3, color: Color, collision := true
-) -> StaticBody3D:
+) -> Node3D:
+	if not collision:
+		_decor_transforms.append(Transform3D(Basis.IDENTITY.scaled(size), pos))
+		_decor_colors.append(color)
+		return self
 	var body := StaticBody3D.new()
 	body.name = node_name
 	body.position = pos
@@ -54,14 +61,34 @@ func _box(
 		body.add_child(shape)
 	return body
 
+func _flush_decorations() -> void:
+	if _decor_transforms.is_empty(): return
+	var batch := MultiMeshInstance3D.new()
+	batch.name = "ArenaDecorationBatch"
+	var instances := MultiMesh.new()
+	instances.transform_format = MultiMesh.TRANSFORM_3D
+	instances.use_colors = true
+	instances.mesh = BoxMesh.new()
+	instances.instance_count = _decor_transforms.size()
+	for index in _decor_transforms.size():
+		instances.set_instance_transform(index, _decor_transforms[index])
+		instances.set_instance_color(index, _decor_colors[index])
+	batch.multimesh = instances
+	var material := StandardMaterial3D.new()
+	material.vertex_color_use_as_albedo = true
+	material.roughness = 0.72
+	batch.material_override = material
+	add_child(batch)
+
 
 func _build_floor() -> void:
 	# Large open terrain prevents the camera from looking into a black void.
 	_box(self, "OpenGround", Vector3(0, -0.38, 0), Vector3(RUNOFF_W, 0.6, RUNOFF_L), Color("5e8546"))
 	_box(self, "Field", Vector3(0, -0.06, 0), Vector3(FIELD_W, 0.08, FIELD_L), Color("285b4d"))
 	# Alternating low-contrast turf bands add speed and altitude cues without textures.
-	var strip_length := FIELD_L / 13.0
-	for i in 13:
+	var strip_count := 26 if int(InputProfile.graphics.get("quality", 1)) >= 2 else 16
+	var strip_length := FIELD_L / float(strip_count)
+	for i in strip_count:
 		var strip_color := Color("34705d") if i % 2 == 0 else Color("2f6756")
 		var strip_z := -FIELD_L * 0.5 + strip_length * (float(i) + 0.5)
 		_box(self, "TurfStrip_%02d" % i, Vector3(0, -0.014, strip_z), Vector3(FIELD_W - 0.24, 0.012, strip_length - 0.035), strip_color, false)
@@ -168,7 +195,14 @@ func _build_stadium() -> void:
 			for z_index in int(60.0 / seat_step) + 1:
 				var z := -30.0 + z_index * seat_step
 				var color: Color = seat_colors[(z_index + tier) % seat_colors.size()]
-				_box(self, "Seats_%s_%d_%d" % [side, tier, z_index], Vector3(side * (14.7 + tier * 3.2), height + 0.8, z), Vector3(0.45, 1.1, 3.8), color, false)
+				var row_count := 1 if quality == 0 else (2 if quality == 1 else 3)
+				for seat_row in row_count:
+					var row_x := side * (14.7 + tier * 3.2 + seat_row * 0.72)
+					var row_y := height + 0.45 + seat_row * 0.62
+					_box(self, "Seats_%s_%d_%d_%d" % [side, tier, z_index, seat_row], Vector3(row_x, row_y, z), Vector3(0.42, 0.48, seat_step * 0.70), color.darkened(seat_row * 0.05), false)
+			# Bright aisle edges and fascia strips add depth at virtually no CPU cost
+			# because all decorative boxes are submitted through one MultiMesh.
+			_box(self, "Aisle_%s_%d" % [side, tier], Vector3(side * (14.4 + tier * 3.2), height + 0.15, 0), Vector3(0.18, 0.18, 62.0), Color("d9d5ca"), false)
 	# End stands leave broad tunnels so the arena reads as open rather than caged.
 	for end: float in [-1.0, 1.0]:
 		for x_index in 8:
@@ -192,8 +226,8 @@ func _build_lights() -> void:
 	sun.rotation_degrees = Vector3(-52, -32, 0)
 	sun.light_color = Color("fff1d0")
 	sun.light_energy = 0.95
-	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 90.0
+	sun.shadow_enabled = bool(InputProfile.graphics.get("shadows", true))
+	sun.directional_shadow_max_distance = 55.0
 	add_child(sun)
 	var fill := DirectionalLight3D.new()
 	fill.name = "SkyFill"

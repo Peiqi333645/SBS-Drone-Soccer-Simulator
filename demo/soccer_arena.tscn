@@ -177,6 +177,18 @@ rotation_degrees = Vector3(90, 0, 0)
 mesh = SubResource("BatteryMesh")
 material_override = SubResource("CoreMat")
 
+[node name="BatteryStrap" type="MeshInstance3D" parent="DroneBody"]
+position = Vector3(0, 0.19, 0.02)
+scale = Vector3(0.48, 0.7, 1.8)
+mesh = SubResource("ArmMesh")
+material_override = SubResource("RearLightMat")
+
+[node name="CameraHousing" type="MeshInstance3D" parent="DroneBody"]
+position = Vector3(0, 0.115, -0.205)
+scale = Vector3(0.62, 0.72, 0.42)
+mesh = SubResource("ShellMesh")
+material_override = SubResource("CoreMat")
+
 [node name="ArmX" type="MeshInstance3D" parent="DroneBody"]
 rotation_degrees = Vector3(0, 45, 0)
 mesh = SubResource("ArmMesh")

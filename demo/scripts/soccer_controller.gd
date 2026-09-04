@@ -40,10 +40,13 @@ func _process(delta: float) -> void:
 		disarm()
 		return
 	var throttle: float = clampf((InputProfile.value(&"throttle") + 1.0) * 0.5, 0.0, 1.0)
-	var response: float = 1.0 - exp(-lerpf(18.0, 70.0, 1.0 - throttle_smoothing) * delta)
+	var response: float = 1.0 - exp(-120.0 * delta)
 	throttle_smoothed = lerpf(throttle_smoothed, _throttle_curve(throttle), response)
-	# Armed motors keep a small Betaflight-style idle; this prevents dead-prop instability.
-	throttle_smoothed = maxf(throttle_smoothed, InputProfile.motor_idle * InputProfile.motor_output_limit)
+	# Zero stick is true zero thrust. Idle no longer causes an unexplained lift.
+	if throttle <= 0.001:
+		throttle_smoothed = 0.0
+	else:
+		throttle_smoothed = maxf(throttle_smoothed, InputProfile.motor_idle * InputProfile.motor_output_limit)
 	# 65 Hz command response keeps the radio connected to the craft without
 	# injecting single-frame HID noise. This feels like an FC, not a camera rig.
 	var input_response: float = 1.0 - exp(-65.0 * delta)
@@ -72,6 +75,7 @@ func _process(delta: float) -> void:
 			altitude_target += (throttle - 0.5) * 2.5 * delta
 			var altitude_error: float = altitude_target - float(telemetry.get("altitude", 0.0))
 			thrust = clampf(_throttle_curve(0.5) + altitude_error * 0.055 - vertical_speed * 0.035, 0.0, InputProfile.motor_output_limit)
+		if throttle <= 0.001: thrust = 0.0
 		drone.set_attitude_setpoint(roll_filtered * angle_limit, pitch_filtered * angle_limit, yaw_rate, thrust)
 	if drone.global_position.y < -2.0 or drone.global_position.y > 60.0:
 		game.reset_drone()
@@ -153,6 +157,7 @@ func apply_profile() -> void:
 	var world_environment := game.get_node_or_null("../WorldEnvironment") as WorldEnvironment
 	if world_environment and world_environment.environment:
 		world_environment.environment.glow_enabled = bool(InputProfile.graphics.glow)
+		world_environment.environment.fog_enabled = int(InputProfile.graphics.quality) > 0
 		var forward_renderer := String(ProjectSettings.get_setting("rendering/renderer/rendering_method", "gl_compatibility")) != "gl_compatibility"
 		world_environment.environment.ssao_enabled = bool(InputProfile.graphics.ssao) and forward_renderer
 	var sun := game.get_node_or_null("../Arena/Sun") as DirectionalLight3D

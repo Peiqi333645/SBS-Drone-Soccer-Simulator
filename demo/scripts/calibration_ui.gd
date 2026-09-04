@@ -430,14 +430,15 @@ func _basic_page() -> VBoxContainer:
 	camera_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	camera_header.add_theme_font_size_override("font_size", 22)
 	root.add_child(camera_header)
-	var camera_grid := VBoxContainer.new()
+	var camera_grid := GridContainer.new()
+	camera_grid.columns = 2
 	root.add_child(camera_grid)
-	_add_profile_slider(camera_grid, "镜头仰角", "camera", "angle", -10, 55, float(InputProfile.camera.angle), "°")
-	_add_profile_slider(camera_grid, "视野 FOV", "camera", "fov", 70, 150, float(InputProfile.camera.fov), "°")
-	_add_profile_slider(camera_grid, "跟随距离", "camera", "follow_distance", 4, 18, float(InputProfile.camera.follow_distance), " m")
-	_add_profile_slider(camera_grid, "跟随高度", "camera", "follow_height", 1.5, 10, float(InputProfile.camera.follow_height), " m")
-	_add_profile_slider(camera_grid, "目视跟随距离", "camera", "los_distance", 4, 14, float(InputProfile.camera.los_distance), " m")
-	_add_profile_slider(camera_grid, "目视跟随高度", "camera", "los_height", 1.5, 8, float(InputProfile.camera.los_height), " m")
+	_add_number_input(camera_grid, "镜头仰角", "angle", -10, 55, float(InputProfile.camera.angle), "°")
+	_add_number_input(camera_grid, "视野 FOV", "fov", 70, 150, float(InputProfile.camera.fov), "°")
+	_add_number_input(camera_grid, "跟随距离", "follow_distance", 3.5, 14, float(InputProfile.camera.follow_distance), " m")
+	_add_number_input(camera_grid, "跟随高度", "follow_height", 1.5, 8, float(InputProfile.camera.follow_height), " m")
+	_add_number_input(camera_grid, "目视距离", "los_distance", 4, 14, float(InputProfile.camera.los_distance), " m")
+	_add_number_input(camera_grid, "目视高度", "los_height", 1.5, 8, float(InputProfile.camera.los_height), " m")
 	return page
 
 func _add_color_palette(parent: Control, caption: String, part: String) -> void:
@@ -479,7 +480,7 @@ func _physics_page() -> VBoxContainer:
 	var page := _page("物理")
 	var body := _content(page)
 	var help := Label.new()
-	help.text = "所有数值都直接作用于刚体、旋翼和空气动力模型。推荐从稳定的 420 g / 1450 KV / 4S 开始。"
+	help.text = "KV 决定电机响应速度，最大输出只限制动力上限，两者互不替代。推荐从 420 g / 2300 KV / 4S 开始。"
 	help.add_theme_font_size_override("font_size", 20)
 	body.add_child(help)
 	_add_profile_slider(body, "机体重量（质量与惯性感）", "physics", "mass", 0.20, 1.50, float(InputProfile.physics.mass), " kg")
@@ -495,9 +496,9 @@ func _physics_page() -> VBoxContainer:
 	_add_section_title(body, "预设")
 	var presets := HBoxContainer.new()
 	body.add_child(presets)
-	_add_physics_preset(presets, "稳定足球机 420g", 0.42, 1450.0, 1.0, 0.68)
-	_add_physics_preset(presets, "灵活竞速 650g", 0.65, 1750.0, 1.05, 0.72)
-	_add_physics_preset(presets, "训练柔和 500g", 0.50, 1200.0, 0.95, 0.62)
+	_add_physics_preset(presets, "稳定足球机 420g", 0.42, 2300.0, 1.0, 0.62)
+	_add_physics_preset(presets, "灵活竞速 650g", 0.65, 2450.0, 1.05, 0.72)
+	_add_physics_preset(presets, "训练柔和 500g", 0.50, 2100.0, 0.95, 0.54)
 	return page
 
 func _graphics_page() -> VBoxContainer:
@@ -545,19 +546,27 @@ func _add_profile_slider(parent: Control, caption: String, group: String, key: S
 	label.text = caption
 	label.custom_minimum_size.x = 190
 	row.add_child(label)
-	var slider := HSlider.new()
+	var slider = preload("res://demo/scripts/smooth_slider.gd").new()
 	slider.min_value = minimum
 	slider.max_value = maximum
 	slider.step = 0.01
 	slider.value = value
 	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	slider.custom_minimum_size.y = 34
 	row.add_child(slider)
 	var number := Label.new()
 	number.text = "%.2f%s" % [value, suffix]
 	number.custom_minimum_size.x = 100
 	row.add_child(number)
 	slider.value_changed.connect(_profile_changed.bind(group, key, number, suffix))
+
+func _add_number_input(parent: Control, caption: String, key: String, minimum: float, maximum: float, value: float, suffix: String) -> void:
+	var row := HBoxContainer.new(); row.custom_minimum_size.x = 360; parent.add_child(row)
+	var label := Label.new(); label.text = caption; label.custom_minimum_size.x = 150; row.add_child(label)
+	var input := SpinBox.new(); input.min_value = minimum; input.max_value = maximum; input.step = 0.1; input.value = value; input.suffix = suffix; input.custom_minimum_size = Vector2(170, 42); row.add_child(input)
+	input.value_changed.connect(_camera_number_changed.bind(key))
+
+func _camera_number_changed(value: float, key: String) -> void:
+	InputProfile.set_camera_value(key, value)
 
 func open() -> void:
 	visible = true
@@ -799,17 +808,44 @@ func _reference_theme() -> Theme:
 	var theme := Theme.new()
 	var panel_style := StyleBoxFlat.new()
 	panel_style.bg_color = Color(0.085, 0.085, 0.095, 0.96)
-	panel_style.border_color = Color("565661")
-	panel_style.set_border_width_all(3)
+	panel_style.border_color = Color("34363b")
+	panel_style.set_border_width_all(1)
+	panel_style.set_corner_radius_all(16)
+	panel_style.shadow_color = Color(0, 0, 0, 0.42)
+	panel_style.shadow_size = 18
 	theme.set_stylebox("panel", "PanelContainer", panel_style)
 	var button_style := StyleBoxFlat.new()
 	button_style.bg_color = Color("242424")
-	button_style.border_color = Color("555555")
-	button_style.set_border_width_all(2)
+	button_style.border_color = Color("45474c")
+	button_style.set_border_width_all(1)
+	button_style.set_corner_radius_all(9)
+	button_style.content_margin_left = 14
+	button_style.content_margin_right = 14
+	button_style.content_margin_top = 9
+	button_style.content_margin_bottom = 9
 	theme.set_stylebox("normal", "Button", button_style)
 	var hover_style := button_style.duplicate() as StyleBoxFlat
 	hover_style.bg_color = Color("d99f00")
+	hover_style.border_color = Color("ffc21a")
 	theme.set_stylebox("hover", "Button", hover_style)
+	var pressed_style := hover_style.duplicate() as StyleBoxFlat
+	pressed_style.bg_color = Color("b88400")
+	theme.set_stylebox("pressed", "Button", pressed_style)
+	var tab_selected := StyleBoxFlat.new()
+	tab_selected.bg_color = Color("24262a")
+	tab_selected.border_color = Color("f2b705")
+	tab_selected.border_width_bottom = 3
+	tab_selected.set_corner_radius_all(7)
+	tab_selected.content_margin_left = 18
+	tab_selected.content_margin_right = 18
+	tab_selected.content_margin_top = 10
+	tab_selected.content_margin_bottom = 10
+	var tab_unselected := tab_selected.duplicate() as StyleBoxFlat
+	tab_unselected.bg_color = Color("151619")
+	tab_unselected.border_width_bottom = 0
+	theme.set_stylebox("tab_selected", "TabBar", tab_selected)
+	theme.set_stylebox("tab_unselected", "TabBar", tab_unselected)
+	theme.set_stylebox("tab_hovered", "TabBar", tab_unselected)
 	var slider_track := StyleBoxFlat.new()
 	slider_track.bg_color = Color("5a4a12")
 	slider_track.set_corner_radius_all(5)

@@ -2,7 +2,7 @@ extends Node
 
 signal profile_changed
 const SAVE_PATH := "user://sbs_controller_profile.json"
-const PROFILE_VERSION := 3
+const PROFILE_VERSION := 4
 const AXES := [&"throttle", &"yaw", &"pitch", &"roll"]
 var device_id := 0
 var deadzone := 0.04
@@ -18,6 +18,7 @@ var rate_type := "Betaflight"
 var flight_mode := "Acro"
 var camera_mode := "Chase"
 var slow_motion := 1.0
+var motor_idle := 0.055
 var aux_buttons := {"reset": 4, "slow_motion": 5, "camera": 6, "flight_mode": 7}
 var throttle_mid := 0.35
 var throttle_expo := 0.30
@@ -33,12 +34,12 @@ var actual_rates := {
 }
 var level := {"sensitivity": 50.0, "angle_limit": 50.0}
 var physics := {"mass": 1.5, "gravity": 1.0, "thrust": 1.0, "drag_low": 0.06, "drag_high": 0.32, "turbulence": 0.0, "motor_kv": 2300.0, "voltage": 16.8}
-var camera := {"angle": 15.0, "fov": 100.0, "follow_distance": 9.0, "follow_height": 4.0}
+var camera := {"angle": 15.0, "fov": 100.0, "follow_distance": 9.0, "follow_height": 4.0, "motion_blur": 0.0, "lens_distortion": 0.0}
 var mappings := {
-	"throttle": {"axis": 1, "min": -1.0, "center": 0.0, "max": 1.0, "invert": true},
-	"yaw": {"axis": 0, "min": -1.0, "center": 0.0, "max": 1.0, "invert": false},
-	"pitch": {"axis": 3, "min": -1.0, "center": 0.0, "max": 1.0, "invert": true},
-	"roll": {"axis": 2, "min": -1.0, "center": 0.0, "max": 1.0, "invert": false},
+	"throttle": {"axis": 1, "min": -1.0, "center": 0.0, "max": 1.0, "invert": true, "deadzone": 0.04},
+	"yaw": {"axis": 0, "min": -1.0, "center": 0.0, "max": 1.0, "invert": false, "deadzone": 0.04},
+	"pitch": {"axis": 3, "min": -1.0, "center": 0.0, "max": 1.0, "invert": true, "deadzone": 0.04},
+	"roll": {"axis": 2, "min": -1.0, "center": 0.0, "max": 1.0, "invert": false, "deadzone": 0.04},
 }
 
 func _ready() -> void:
@@ -70,15 +71,17 @@ func value(control: StringName) -> float:
 		normalized = -inverse_lerp(center, min(float(map.min), center - 0.01), raw)
 	normalized = clamp(normalized, -1.0, 1.0)
 	if bool(map.invert): normalized *= -1.0
-	if abs(normalized) <= deadzone: return 0.0
-	var dz: float = (absf(normalized) - deadzone) / (1.0 - deadzone)
+	var channel_deadzone: float = clampf(float(map.get("deadzone", deadzone)), 0.0, 0.30)
+	if absf(normalized) <= channel_deadzone: return 0.0
+	var dz: float = (absf(normalized) - channel_deadzone) / maxf(0.01, 1.0 - channel_deadzone)
 	return signf(normalized) * dz
 func set_mapping(control: StringName, axis: int, minimum: float, center: float, maximum: float, invert: bool) -> void:
-	mappings[String(control)] = {"axis": axis, "min": minimum, "center": center, "max": maximum, "invert": invert}
+	var old: Dictionary = mappings.get(String(control), {})
+	mappings[String(control)] = {"axis": axis, "min": minimum, "center": center, "max": maximum, "invert": invert, "deadzone": float(old.get("deadzone", deadzone))}
 	save_profile()
 	profile_changed.emit()
 func save_profile() -> void:
-	var flight := {"bf_rc_rate": bf_rc_rate, "bf_super_rate": bf_super_rate, "bf_rate_expo": bf_rate_expo, "bf_yaw_rate": bf_yaw_rate, "bf_yaw_super_rate": bf_yaw_super_rate, "motor_output_limit": motor_output_limit, "throttle_mid": throttle_mid, "throttle_expo": throttle_expo, "axis_rates": axis_rates, "actual_rates": actual_rates, "level": level, "physics": physics, "camera": camera, "rate_type": rate_type, "flight_mode": flight_mode, "camera_mode": camera_mode, "slow_motion": slow_motion, "aux_buttons": aux_buttons}
+	var flight := {"bf_rc_rate": bf_rc_rate, "bf_super_rate": bf_super_rate, "bf_rate_expo": bf_rate_expo, "bf_yaw_rate": bf_yaw_rate, "bf_yaw_super_rate": bf_yaw_super_rate, "motor_output_limit": motor_output_limit, "throttle_mid": throttle_mid, "throttle_expo": throttle_expo, "axis_rates": axis_rates, "actual_rates": actual_rates, "level": level, "physics": physics, "camera": camera, "rate_type": rate_type, "flight_mode": flight_mode, "camera_mode": camera_mode, "slow_motion": slow_motion, "motor_idle": motor_idle, "aux_buttons": aux_buttons}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file: file.store_string(JSON.stringify({"version": PROFILE_VERSION, "device_id": device_id, "deadzone": deadzone, "expo": expo, "mappings": mappings, "flight": flight}, "\t"))
 func load_profile() -> void:
@@ -106,6 +109,7 @@ func load_profile() -> void:
 	flight_mode = String(flight.get("flight_mode", flight_mode))
 	camera_mode = String(flight.get("camera_mode", camera_mode))
 	slow_motion = float(flight.get("slow_motion", slow_motion))
+	motor_idle = float(flight.get("motor_idle", motor_idle))
 	var loaded_rates = flight.get("axis_rates", {})
 	if loaded_rates is Dictionary:
 		for axis_name in ["roll", "pitch", "yaw"]:
@@ -153,10 +157,11 @@ func reset_defaults() -> void:
 	camera_mode = "Chase"
 	slow_motion = 1.0
 	motor_output_limit = 0.38
+	motor_idle = 0.055
 	axis_rates = {"roll":{"rc":1.0,"super":0.70,"expo":0.20},"pitch":{"rc":1.0,"super":0.70,"expo":0.20},"yaw":{"rc":0.85,"super":0.65,"expo":0.10}}
 	actual_rates = {"roll":{"center":220.0,"max":850.0,"expo":0.0,"ff":0.0},"pitch":{"center":220.0,"max":850.0,"expo":0.0,"ff":0.0},"yaw":{"center":220.0,"max":750.0,"expo":0.0,"ff":0.0}}
 	level = {"sensitivity":50.0,"angle_limit":50.0}
 	physics = {"mass":1.5,"gravity":1.0,"thrust":1.0,"drag_low":0.06,"drag_high":0.32,"turbulence":0.0,"motor_kv":2300.0,"voltage":16.8}
-	camera = {"angle":30.0,"fov":120.0,"follow_distance":9.0,"follow_height":4.0}
+	camera = {"angle":30.0,"fov":120.0,"follow_distance":9.0,"follow_height":4.0,"motion_blur":0.0,"lens_distortion":0.0}
 	save_profile()
 	profile_changed.emit()

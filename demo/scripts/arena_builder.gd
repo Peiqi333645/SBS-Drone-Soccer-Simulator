@@ -57,7 +57,13 @@ func _box(
 func _build_floor() -> void:
 	# Large open terrain prevents the camera from looking into a black void.
 	_box(self, "OpenGround", Vector3(0, -0.38, 0), Vector3(RUNOFF_W, 0.6, RUNOFF_L), Color("5e8546"))
-	_box(self, "Field", Vector3(0, -0.06, 0), Vector3(FIELD_W, 0.08, FIELD_L), Color("39705c"))
+	_box(self, "Field", Vector3(0, -0.06, 0), Vector3(FIELD_W, 0.08, FIELD_L), Color("285b4d"))
+	# Alternating low-contrast turf bands add speed and altitude cues without textures.
+	var strip_length := FIELD_L / 13.0
+	for i in 13:
+		var strip_color := Color("34705d") if i % 2 == 0 else Color("2f6756")
+		var strip_z := -FIELD_L * 0.5 + strip_length * (float(i) + 0.5)
+		_box(self, "TurfStrip_%02d" % i, Vector3(0, -0.014, strip_z), Vector3(FIELD_W - 0.24, 0.012, strip_length - 0.035), strip_color, false)
 	# A pale outer apron makes the playable area readable without enclosing walls.
 	_box(self, "NorthApron", Vector3(0, -0.015, -FIELD_L * 0.5 - 1.5), Vector3(FIELD_W + 4.0, 0.04, 3.0), Color("c5b991"), false)
 	_box(self, "SouthApron", Vector3(0, -0.015, FIELD_L * 0.5 + 1.5), Vector3(FIELD_W + 4.0, 0.04, 3.0), Color("c5b991"), false)
@@ -152,7 +158,7 @@ func _build_lights() -> void:
 	sun.name = "Sun"
 	sun.rotation_degrees = Vector3(-52, -32, 0)
 	sun.light_color = Color("fff1d0")
-	sun.light_energy = 1.25
+	sun.light_energy = 0.95
 	sun.shadow_enabled = true
 	sun.directional_shadow_max_distance = 90.0
 	add_child(sun)

@@ -10,6 +10,8 @@ var progress: ProgressBar
 var bars: Array[ProgressBar] = []
 var values: Array[Label] = []
 var buttons: Array[Button] = []
+var raw_button_labels: Array[Label] = []
+var monitor: Control
 var curve: Control
 var current := -1
 var sampling := false
@@ -117,6 +119,32 @@ func _controller_page() -> VBoxContainer:
 		label.text = "AXIS-%d   0.000" % axis
 		label.custom_minimum_size.x = 230
 		raw_grid.add_child(label)
+	var aux_title := Label.new()
+	aux_title.text = "辅助控制映射"
+	aux_title.add_theme_font_size_override("font_size", 18)
+	body.add_child(aux_title)
+	var aux_row := HBoxContainer.new()
+	body.add_child(aux_row)
+	_add_aux_choice(aux_row, "重置", "reset")
+	_add_aux_choice(aux_row, "慢动作", "slow_motion")
+	_add_aux_choice(aux_row, "相机切换", "camera")
+	_add_aux_choice(aux_row, "飞行模式", "flight_mode")
+	var status_split := HBoxContainer.new()
+	status_split.add_theme_constant_override("separation", 18)
+	body.add_child(status_split)
+	var button_grid := GridContainer.new()
+	button_grid.columns = 10
+	status_split.add_child(button_grid)
+	for button_index in 20:
+		var button_label := Label.new()
+		button_label.text = "%02d" % (button_index + 1)
+		button_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		button_label.custom_minimum_size = Vector2(35, 28)
+		button_grid.add_child(button_label)
+		raw_button_labels.append(button_label)
+	monitor = preload("res://demo/scripts/controller_monitor.gd").new()
+	monitor.custom_minimum_size = Vector2(360, 150)
+	status_split.add_child(monitor)
 	return page
 
 func _add_channel(parent: VBoxContainer, index: int) -> void:
@@ -158,6 +186,17 @@ func _rate_page() -> VBoxContainer:
 	help.text = "Betaflight Rate · 分轴调节。RC Rate 控制中心响应，Super Rate 提高杆端转速，Expo 让中心更柔和。"
 	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_child(help)
+	var type_row := HBoxContainer.new()
+	body.add_child(type_row)
+	var type_label := Label.new()
+	type_label.text = "RATE 类型"
+	type_label.custom_minimum_size.x = 120
+	type_row.add_child(type_label)
+	var type_choice := OptionButton.new()
+	for rate_name in ["Actual", "Betaflight", "Raceflight", "KISS"]: type_choice.add_item(rate_name)
+	type_choice.select(["Actual", "Betaflight", "Raceflight", "KISS"].find(InputProfile.rate_type))
+	type_choice.item_selected.connect(_rate_type_changed.bind(type_choice))
+	type_row.add_child(type_choice)
 	var split := HBoxContainer.new()
 	split.add_theme_constant_override("separation", 24)
 	body.add_child(split)
@@ -172,6 +211,17 @@ func _rate_page() -> VBoxContainer:
 	curve = preload("res://demo/scripts/rate_curve.gd").new()
 	curve.custom_minimum_size = Vector2(430, 330)
 	split.add_child(curve)
+	var actual_title := Label.new()
+	actual_title.text = "Actual Rate（中心灵敏度 / 最大角速度 / Expo / Feed Forward）"
+	actual_title.add_theme_color_override("font_color", Color("9fb8c8"))
+	table.add_child(actual_title)
+	for actual_axis in ["roll", "pitch", "yaw"]: _add_actual_row(table, actual_axis)
+	var level_title := Label.new()
+	level_title.text = "自稳 / 定高模式"
+	level_title.add_theme_color_override("font_color", Color("9fb8c8"))
+	table.add_child(level_title)
+	_add_dict_slider(table, "自稳灵敏度", "level", "sensitivity", 10.0, 100.0, float(InputProfile.level.sensitivity))
+	_add_dict_slider(table, "角度限制", "level", "angle_limit", 15.0, 85.0, float(InputProfile.level.angle_limit))
 	var preset := HBoxContainer.new()
 	table.add_child(preset)
 	for item in [["柔和", 0.72, 0.55, 0.30], ["默认", 1.0, 0.70, 0.20], ["竞速", 1.25, 0.78, 0.12]]:
@@ -200,6 +250,41 @@ func _add_rate_row(parent: VBoxContainer, axis_name: String) -> void:
 	max_label.text = "%d °/s" % _max_rate(rate)
 	row.add_child(max_label)
 
+func _add_actual_row(parent: VBoxContainer, axis_name: String) -> void:
+	var row := HBoxContainer.new()
+	parent.add_child(row)
+	var label := Label.new()
+	label.text = axis_name.to_upper()
+	label.custom_minimum_size.x = 95
+	row.add_child(label)
+	var values: Dictionary = InputProfile.actual_rates[axis_name]
+	for key in ["center", "max", "expo", "ff"]:
+		var spin := SpinBox.new()
+		spin.min_value = 0.0
+		spin.max_value = 1500.0 if key in ["center", "max"] else 1.0
+		spin.step = 1.0 if key in ["center", "max"] else 0.01
+		spin.value = float(values[key])
+		spin.custom_minimum_size.x = 135
+		spin.value_changed.connect(_actual_rate_changed.bind(axis_name, key))
+		row.add_child(spin)
+
+func _add_dict_slider(parent: VBoxContainer, caption: String, group: String, key: String, minimum: float, maximum: float, value: float) -> void:
+	_add_profile_slider(parent, caption, group, key, minimum, maximum, value, "")
+
+func _add_aux_choice(parent: HBoxContainer, caption: String, action: String) -> void:
+	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(box)
+	var label := Label.new()
+	label.text = caption
+	box.add_child(label)
+	var choice := OptionButton.new()
+	choice.add_item("NONE", -1)
+	for button_index in 20: choice.add_item("BUTTON-%d" % (button_index + 1), button_index)
+	choice.select(int(InputProfile.aux_buttons.get(action, -1)) + 1)
+	choice.item_selected.connect(_aux_changed.bind(choice, action))
+	box.add_child(choice)
+
 func _rate_spin(parent: HBoxContainer, axis_name: String, key: String, minimum: float, maximum: float, value: float) -> void:
 	var spin := SpinBox.new()
 	spin.min_value = minimum
@@ -215,6 +300,28 @@ func _basic_page() -> VBoxContainer:
 	var body := _content(page)
 	var help := Label.new()
 	help.text = "镜头与跟随视角"
+	var camera_row := HBoxContainer.new()
+	body.add_child(camera_row)
+	var camera_label := Label.new()
+	camera_label.text = "相机模式"
+	camera_label.custom_minimum_size.x = 190
+	camera_row.add_child(camera_label)
+	var camera_choice := OptionButton.new()
+	for camera_name in ["Chase", "FPV", "LOS"]: camera_choice.add_item(camera_name)
+	camera_choice.select(["Chase", "FPV", "LOS"].find(InputProfile.camera_mode))
+	camera_choice.item_selected.connect(_camera_mode_changed.bind(camera_choice))
+	camera_row.add_child(camera_choice)
+	var flight_row := HBoxContainer.new()
+	body.add_child(flight_row)
+	var flight_label := Label.new()
+	flight_label.text = "飞行模式"
+	flight_label.custom_minimum_size.x = 190
+	flight_row.add_child(flight_label)
+	var flight_choice := OptionButton.new()
+	for mode_name in ["Acro", "Angle", "Altitude"]: flight_choice.add_item(mode_name)
+	flight_choice.select(["Acro", "Angle", "Altitude"].find(InputProfile.flight_mode))
+	flight_choice.item_selected.connect(_flight_mode_changed.bind(flight_choice))
+	flight_row.add_child(flight_choice)
 	help.add_theme_font_size_override("font_size", 22)
 	body.add_child(help)
 	_add_profile_slider(body, "FPV 镜头仰角", "camera", "angle", -10, 55, float(InputProfile.camera.angle), "°")
@@ -236,6 +343,9 @@ func _physics_page() -> VBoxContainer:
 	_add_profile_slider(body, "低速阻力", "physics", "drag_low", 0.0, 0.20, float(InputProfile.physics.drag_low), "")
 	_add_profile_slider(body, "高速阻力", "physics", "drag_high", 0.02, 0.60, float(InputProfile.physics.drag_high), "")
 	_add_profile_slider(body, "空气乱流", "physics", "turbulence", 0.0, 2.0, float(InputProfile.physics.turbulence), "")
+	_add_profile_slider(body, "电机 KV", "physics", "motor_kv", 800.0, 3000.0, float(InputProfile.physics.motor_kv), " KV")
+	_add_profile_slider(body, "电池电压", "physics", "voltage", 7.4, 25.2, float(InputProfile.physics.voltage), " V")
+	_add_profile_slider(body, "慢动作倍率", "general", "slow_motion", 0.2, 1.0, InputProfile.slow_motion, " x")
 	_add_profile_slider(body, "电机最大输出", "output", "motor_output_limit", 0.2, 0.8, InputProfile.motor_output_limit, "")
 	return page
 
@@ -292,6 +402,10 @@ func _update_live() -> void:
 	for axis in 8:
 		var label := grid.get_node("Axis%d" % axis) as Label
 		label.text = "AXIS-%d   %+.3f" % [axis, InputProfile.raw_axis(axis)]
+	for button_index in raw_button_labels.size():
+		var pressed := InputProfile.device_id in InputProfile.connected_devices() and Input.is_joy_button_pressed(InputProfile.device_id, button_index)
+		raw_button_labels[button_index].modulate = Color("ffd23f") if pressed else Color("75838b")
+	if monitor: monitor.queue_redraw()
 func _start_sample(index: int) -> void:
 	if sampling: return
 	current = index
@@ -343,10 +457,30 @@ func _rate_preset(rc: float, super_rate: float, expo: float) -> void:
 	InputProfile.profile_changed.emit()
 	close_ui()
 	game.open_calibration()
+func _rate_type_changed(index: int, choice: OptionButton) -> void:
+	InputProfile.set_general_value("rate_type", choice.get_item_text(index))
+func _camera_mode_changed(index: int, choice: OptionButton) -> void:
+	InputProfile.set_general_value("camera_mode", choice.get_item_text(index))
+	game.set_camera_mode(InputProfile.camera_mode)
+func _flight_mode_changed(index: int, choice: OptionButton) -> void:
+	InputProfile.set_general_value("flight_mode", choice.get_item_text(index))
+func _aux_changed(index: int, choice: OptionButton, action: String) -> void:
+	InputProfile.aux_buttons[action] = choice.get_item_id(index)
+	InputProfile.save_profile()
+func _actual_rate_changed(value: float, axis_name: String, key: String) -> void:
+	InputProfile.actual_rates[axis_name][key] = value
+	InputProfile.save_profile()
+	InputProfile.profile_changed.emit()
+
 func _profile_changed(value: float, group: String, key: String, number: Label, suffix: String) -> void:
 	number.text = "%.2f%s" % [value, suffix]
 	if group == "physics": InputProfile.set_physics_value(key, value)
 	elif group == "camera": InputProfile.set_camera_value(key, value)
+	elif group == "level":
+		InputProfile.level[key] = value
+		InputProfile.save_profile()
+		InputProfile.profile_changed.emit()
+	elif group == "general": InputProfile.set_general_value(key, value)
 	else:
 		InputProfile.set(key, value)
 		InputProfile.save_profile()

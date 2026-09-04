@@ -46,7 +46,8 @@ func _build_ui() -> void:
 	var panel := PanelContainer.new()
 	panel.set_anchors_preset(Control.PRESET_CENTER)
 	panel.position = Vector2(-570, -390)
-	panel.size = Vector2(1140, 780)
+	panel.size = Vector2(1500, 860)
+	panel.theme = _reference_theme()
 	shade.add_child(panel)
 	var outer := VBoxContainer.new()
 	outer.add_theme_constant_override("separation", 12)
@@ -68,7 +69,6 @@ func _build_ui() -> void:
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	outer.add_child(tabs)
 	tabs.add_child(_controller_page())
-	tabs.add_child(_rate_page())
 	tabs.add_child(_basic_page())
 	tabs.add_child(_physics_page())
 
@@ -95,109 +95,129 @@ func _content(page: VBoxContainer) -> VBoxContainer:
 	return page.get_child(0).get_child(0).get_child(0) as VBoxContainer
 
 func _controller_page() -> VBoxContainer:
-	var page := _page("遥控器")
+	var page := _page("控制器设置")
 	var body := _content(page)
+	var split := HBoxContainer.new()
+	split.add_theme_constant_override("separation", 24)
+	body.add_child(split)
+	var left := VBoxContainer.new()
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left.add_theme_constant_override("separation", 9)
+	split.add_child(left)
+	var title := Label.new()
+	title.text = "控制器设置"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 25)
+	left.add_child(title)
 	device = OptionButton.new()
-	device.custom_minimum_size.y = 46
+	device.custom_minimum_size.y = 44
 	device.item_selected.connect(_select_device)
-	body.add_child(device)
+	left.add_child(device)
 	hint = Label.new()
-	hint.text = "实时查看通道行程；每个通道可单独识别。校准时只移动指定摇杆。"
-	hint.custom_minimum_size.y = 42
-	body.add_child(hint)
-	for i in CONTROLS.size(): _add_channel(body, i)
-	progress = ProgressBar.new()
-	progress.max_value = SAMPLE_SECONDS
-	progress.show_percentage = false
-	body.add_child(progress)
-	var raw_title := Label.new()
-	raw_title.text = "控制器原始输入（AXIS 0—15）"
-	raw_title.add_theme_font_size_override("font_size", 18)
-	body.add_child(raw_title)
-	var raw_grid := GridContainer.new()
-	raw_grid.name = "RawGrid"
-	raw_grid.columns = 4
-	body.add_child(raw_grid)
-	for axis in RAW_AXIS_COUNT:
-		var label := Label.new()
-		label.name = "Axis%d" % axis
-		label.text = "AXIS-%d   0.000" % axis
-		label.custom_minimum_size.x = 210
-		raw_grid.add_child(label)
-	var aux_title := Label.new()
-	aux_title.text = "辅助控制映射"
-	aux_title.add_theme_font_size_override("font_size", 18)
-	body.add_child(aux_title)
+	hint.text = "识别时：前 2 秒推向标注正方向，后 2 秒推向反方向。"
+	hint.custom_minimum_size.y = 38
+	left.add_child(hint)
+	for i in CONTROLS.size(): _add_channel(left, i)
 	var aux_row := HBoxContainer.new()
-	body.add_child(aux_row)
+	left.add_child(aux_row)
 	_add_aux_choice(aux_row, "重置", "reset")
 	_add_aux_choice(aux_row, "慢动作", "slow_motion")
 	_add_aux_choice(aux_row, "相机切换", "camera")
 	_add_aux_choice(aux_row, "飞行模式", "flight_mode")
-	var status_split := HBoxContainer.new()
-	status_split.add_theme_constant_override("separation", 18)
-	body.add_child(status_split)
+	progress = ProgressBar.new()
+	progress.max_value = SAMPLE_SECONDS
+	progress.show_percentage = false
+	left.add_child(progress)
+	var right := VBoxContainer.new()
+	right.custom_minimum_size.x = 610
+	right.add_theme_constant_override("separation", 10)
+	split.add_child(right)
+	var raw_title := Label.new()
+	raw_title.text = "控制器原始输入"
+	raw_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	raw_title.add_theme_font_size_override("font_size", 24)
+	right.add_child(raw_title)
+	var raw_grid := GridContainer.new()
+	raw_grid.name = "RawGrid"
+	raw_grid.columns = 4
+	right.add_child(raw_grid)
+	for axis in RAW_AXIS_COUNT:
+		var raw_label := Label.new()
+		raw_label.name = "Axis%d" % axis
+		raw_label.text = "AXIS-%02d  0.000" % (axis + 1)
+		raw_label.custom_minimum_size = Vector2(140, 25)
+		raw_grid.add_child(raw_label)
 	var button_grid := GridContainer.new()
 	button_grid.columns = 10
-	status_split.add_child(button_grid)
+	right.add_child(button_grid)
 	for button_index in 20:
 		var button_label := Label.new()
 		button_label.text = "%02d" % (button_index + 1)
 		button_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		button_label.custom_minimum_size = Vector2(35, 28)
+		button_label.custom_minimum_size = Vector2(48, 28)
 		button_grid.add_child(button_label)
 		raw_button_labels.append(button_label)
+	var state_title := Label.new()
+	state_title.text = "控制状态"
+	state_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	state_title.add_theme_font_size_override("font_size", 24)
+	right.add_child(state_title)
+	monitor = preload("res://demo/scripts/controller_monitor.gd").new()
+	monitor.custom_minimum_size = Vector2(590, 215)
+	right.add_child(monitor)
 	var quick_modes := HBoxContainer.new()
-	body.add_child(quick_modes)
-	var mode_caption := Label.new()
-	mode_caption.text = "控制状态"
-	mode_caption.custom_minimum_size.x = 110
-	quick_modes.add_child(mode_caption)
+	right.add_child(quick_modes)
 	for mode_name in ["Acro", "Angle", "Altitude"]:
 		var mode_button := Button.new()
 		mode_button.text = mode_name
 		mode_button.pressed.connect(_set_flight_mode.bind(mode_name))
 		quick_modes.add_child(mode_button)
-	for camera_name in ["Chase", "FPV", "LOS"]:
+	for camera_name in ["FPV", "Chase", "LOS"]:
 		var camera_button := Button.new()
 		camera_button.text = camera_name
 		camera_button.pressed.connect(_set_camera_mode.bind(camera_name))
 		quick_modes.add_child(camera_button)
+	var actions := HBoxContainer.new()
+	right.add_child(actions)
+	var all_button := Button.new()
+	all_button.text = "依次校准四通道"
+	all_button.custom_minimum_size = Vector2(260, 52)
+	all_button.pressed.connect(_start_full_calibration)
+	actions.add_child(all_button)
 	var reset_button := Button.new()
-	reset_button.text = "恢复全部默认设置"
+	reset_button.text = "重置校准数据"
+	reset_button.custom_minimum_size = Vector2(260, 52)
 	reset_button.pressed.connect(_reset_defaults)
-	quick_modes.add_child(reset_button)
-	monitor = preload("res://demo/scripts/controller_monitor.gd").new()
-	monitor.custom_minimum_size = Vector2(360, 150)
-	status_split.add_child(monitor)
+	actions.add_child(reset_button)
 	return page
 
 func _add_channel(parent: VBoxContainer, index: int) -> void:
 	var card := HBoxContainer.new()
-	card.add_theme_constant_override("separation", 12)
+	card.add_theme_constant_override("separation", 7)
 	parent.add_child(card)
 	var label := Label.new()
 	label.text = LABELS[index]
-	label.custom_minimum_size.x = 155
+	label.custom_minimum_size.x = 125
 	card.add_child(label)
-	var axis_choice := OptionButton.new()
-	axis_choice.custom_minimum_size.x = 105
-	for axis_index in RAW_AXIS_COUNT: axis_choice.add_item("AXIS-%d" % axis_index, axis_index)
-	axis_choice.select(clampi(int(InputProfile.mappings[String(CONTROLS[index])].axis), 0, RAW_AXIS_COUNT - 1))
-	axis_choice.item_selected.connect(_axis_changed.bind(axis_choice, index))
-	card.add_child(axis_choice)
 	var bar := ProgressBar.new()
 	bar.min_value = -100
 	bar.max_value = 100
 	bar.show_percentage = false
-	bar.custom_minimum_size = Vector2(255, 38)
+	bar.custom_minimum_size = Vector2(190, 34)
 	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card.add_child(bar)
 	bars.append(bar)
 	var value := Label.new()
-	value.custom_minimum_size.x = 115
+	value.custom_minimum_size.x = 52
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	card.add_child(value)
 	values.append(value)
+	var axis_choice := OptionButton.new()
+	axis_choice.custom_minimum_size.x = 102
+	for axis_index in RAW_AXIS_COUNT: axis_choice.add_item("AXIS-%d" % (axis_index + 1), axis_index)
+	axis_choice.select(clampi(int(InputProfile.mappings[String(CONTROLS[index])].axis), 0, RAW_AXIS_COUNT - 1))
+	axis_choice.item_selected.connect(_axis_changed.bind(axis_choice, index))
+	card.add_child(axis_choice)
 	var invert := CheckButton.new()
 	invert.text = "反向"
 	invert.button_pressed = bool(InputProfile.mappings[String(CONTROLS[index])].invert)
@@ -209,12 +229,12 @@ func _add_channel(parent: VBoxContainer, index: int) -> void:
 	dz.max_value = 0.30
 	dz.step = 0.01
 	dz.value = float(InputProfile.mappings[String(CONTROLS[index])].get("deadzone", InputProfile.deadzone))
-	dz.custom_minimum_size.x = 105
+	dz.custom_minimum_size.x = 100
 	dz.value_changed.connect(_deadzone_changed.bind(index))
 	card.add_child(dz)
 	var identify := Button.new()
-	identify.text = "识别/校准"
-	identify.custom_minimum_size.x = 115
+	identify.text = "识别"
+	identify.custom_minimum_size.x = 74
 	identify.pressed.connect(_start_sample.bind(index))
 	card.add_child(identify)
 	buttons.append(identify)
@@ -445,10 +465,10 @@ func _update_live() -> void:
 		var map: Dictionary = InputProfile.mappings[String(CONTROLS[i])]
 		bars[i].value = InputProfile.value(CONTROLS[i]) * 100.0
 		values[i].text = "AXIS-%d  %+.0f" % [int(map.axis), bars[i].value]
-	var grid := device.get_parent().get_node("RawGrid") as GridContainer
+	var grid := get_tree().current_scene.find_child("RawGrid", true, false) as GridContainer
 	for axis in RAW_AXIS_COUNT:
 		var label := grid.get_node("Axis%d" % axis) as Label
-		label.text = "AXIS-%d   %+.3f" % [axis, InputProfile.raw_axis(axis)]
+		label.text = "AXIS-%02d  %+.3f" % [axis + 1, InputProfile.raw_axis(axis)]
 	for button_index in raw_button_labels.size():
 		var pressed: bool = InputProfile.device_id in InputProfile.connected_devices() and Input.is_joy_button_pressed(InputProfile.device_id, button_index)
 		raw_button_labels[button_index].modulate = Color("ffd23f") if pressed else Color("75838b")
@@ -573,3 +593,40 @@ func _component_changed(enabled: bool, key: String) -> void:
 	InputProfile.components[key] = enabled
 	InputProfile.save_profile()
 	InputProfile.profile_changed.emit()
+
+func _reference_theme() -> Theme:
+	var theme := Theme.new()
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color("242424")
+	panel_style.border_color = Color("515151")
+	panel_style.set_border_width_all(3)
+	theme.set_stylebox("panel", "PanelContainer", panel_style)
+	var button_style := StyleBoxFlat.new()
+	button_style.bg_color = Color("514e6d")
+	button_style.border_color = Color("77749c")
+	button_style.set_border_width_all(2)
+	theme.set_stylebox("normal", "Button", button_style)
+	var hover_style := button_style.duplicate() as StyleBoxFlat
+	hover_style.bg_color = Color("68638e")
+	theme.set_stylebox("hover", "Button", hover_style)
+	theme.set_color("font_color", "Label", Color("e8e8e8"))
+	theme.set_color("font_color", "Button", Color("f3f3f3"))
+	theme.set_color("font_color", "OptionButton", Color("f3f3f3"))
+	theme.set_color("font_color", "SpinBox", Color("f2c800"))
+	theme.set_font_size("font_size", "Label", 16)
+	theme.set_font_size("font_size", "Button", 16)
+	return theme
+
+var full_calibration_queue: Array[int] = []
+
+func _start_full_calibration() -> void:
+	if sampling: return
+	full_calibration_queue = [0, 1, 2, 3]
+	_start_next_full_channel()
+
+func _start_next_full_channel() -> void:
+	if full_calibration_queue.is_empty():
+		hint.text = "四通道校准完成，请检查控制状态后保存。"
+		return
+	var next_channel: int = full_calibration_queue.pop_front()
+	_start_sample(next_channel)

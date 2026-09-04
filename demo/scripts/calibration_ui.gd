@@ -12,7 +12,9 @@ var progress: ProgressBar
 var bars: Array[ProgressBar] = []
 var values: Array[Label] = []
 var buttons: Array[Button] = []
-var raw_button_labels: Array[Label] = []
+var aux_labels := {}
+var aux_sampling := false
+var current_aux := ""
 var monitor: Control
 var curve: Control
 var current := -1
@@ -27,10 +29,21 @@ func _ready() -> void:
 	game = get_node(game_path)
 	layer = 20
 	_build_ui()
+	Input.joy_connection_changed.connect(_on_joy_connection_changed)
 	visible = false
 
 func _process(delta: float) -> void:
 	if visible: _update_live()
+	if aux_sampling:
+		for button_index in 32:
+			if InputProfile.device_id in InputProfile.connected_devices() and Input.is_joy_button_pressed(InputProfile.device_id, button_index):
+				InputProfile.aux_buttons[current_aux] = button_index
+				InputProfile.save_profile()
+				aux_labels[current_aux].text = "BUTTON-%d" % (button_index + 1)
+				hint.text = "完成：已识别 %s 为 BUTTON-%d" % [current_aux, button_index + 1]
+				aux_sampling = false
+				for button in buttons: button.disabled = false
+				break
 	if not sampling: return
 	sample_time += delta
 	for axis in RAW_AXIS_COUNT:
@@ -77,6 +90,7 @@ func _build_ui() -> void:
 	tabs.add_child(_controller_page())
 	tabs.add_child(_basic_page())
 	tabs.add_child(_physics_page())
+	tabs.add_child(_graphics_page())
 
 func _page(name_value: String) -> VBoxContainer:
 	var page := VBoxContainer.new()
@@ -124,12 +138,11 @@ func _controller_page() -> VBoxContainer:
 	hint.custom_minimum_size.y = 38
 	left.add_child(hint)
 	for i in CONTROLS.size(): _add_channel(left, i)
-	var aux_row := HBoxContainer.new()
-	left.add_child(aux_row)
-	_add_aux_choice(aux_row, "重置", "reset")
-	_add_aux_choice(aux_row, "慢动作", "slow_motion")
-	_add_aux_choice(aux_row, "相机切换", "camera")
-	_add_aux_choice(aux_row, "飞行模式", "flight_mode")
+	_add_section_title(left, "开关通道 · 全部通过识别完成")
+	_add_aux_identify(left, "重置飞机", "reset")
+	_add_aux_identify(left, "慢动作", "slow_motion")
+	_add_aux_identify(left, "切换相机", "camera")
+	_add_aux_identify(left, "切换飞行模式", "flight_mode")
 	progress = ProgressBar.new()
 	progress.max_value = SAMPLE_SECONDS
 	progress.show_percentage = false
@@ -138,50 +151,25 @@ func _controller_page() -> VBoxContainer:
 	right.custom_minimum_size.x = 610
 	right.add_theme_constant_override("separation", 10)
 	split.add_child(right)
-	var raw_title := Label.new()
-	raw_title.text = "控制器原始输入"
-	raw_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	raw_title.add_theme_font_size_override("font_size", 24)
-	right.add_child(raw_title)
-	var raw_grid := GridContainer.new()
-	raw_grid.name = "RawGrid"
-	raw_grid.columns = 4
-	right.add_child(raw_grid)
-	for axis in RAW_AXIS_COUNT:
-		var raw_label := Label.new()
-		raw_label.name = "Axis%d" % axis
-		raw_label.text = "AXIS-%02d  0.000" % (axis + 1)
-		raw_label.custom_minimum_size = Vector2(140, 25)
-		raw_grid.add_child(raw_label)
-	var button_grid := GridContainer.new()
-	button_grid.columns = 10
-	right.add_child(button_grid)
-	for button_index in 20:
-		var button_label := Label.new()
-		button_label.text = "%02d" % (button_index + 1)
-		button_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		button_label.custom_minimum_size = Vector2(48, 28)
-		button_grid.add_child(button_label)
-		raw_button_labels.append(button_label)
 	var state_title := Label.new()
-	state_title.text = "控制状态"
+	state_title.text = "控制状态 · 校准后请在这里确认方向"
 	state_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	state_title.add_theme_font_size_override("font_size", 24)
 	right.add_child(state_title)
 	monitor = preload("res://demo/scripts/controller_monitor.gd").new()
-	monitor.custom_minimum_size = Vector2(590, 215)
+	monitor.custom_minimum_size = Vector2(590, 360)
 	right.add_child(monitor)
 	var quick_modes := HBoxContainer.new()
 	right.add_child(quick_modes)
-	for mode_name in ["Acro", "Angle", "Altitude"]:
+	for mode_name in ["Acro 手动", "Angle 自稳", "Altitude 定高"]:
 		var mode_button := Button.new()
 		mode_button.text = mode_name
-		mode_button.pressed.connect(_set_flight_mode.bind(mode_name))
+		mode_button.pressed.connect(_set_flight_mode.bind(mode_name.get_slice(" ", 0)))
 		quick_modes.add_child(mode_button)
-	for camera_name in ["FPV", "Chase", "LOS"]:
+	for camera_name in ["FPV 第一视角", "Chase 追尾", "LOS 目视跟随"]:
 		var camera_button := Button.new()
 		camera_button.text = camera_name
-		camera_button.pressed.connect(_set_camera_mode.bind(camera_name))
+		camera_button.pressed.connect(_set_camera_mode.bind(camera_name.get_slice(" ", 0)))
 		quick_modes.add_child(camera_button)
 	var actions := HBoxContainer.new()
 	right.add_child(actions)
@@ -218,12 +206,13 @@ func _add_channel(parent: VBoxContainer, index: int) -> void:
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	card.add_child(value)
 	values.append(value)
-	var axis_choice := OptionButton.new()
-	axis_choice.custom_minimum_size.x = 102
-	for axis_index in RAW_AXIS_COUNT: axis_choice.add_item("AXIS-%d" % (axis_index + 1), axis_index)
-	axis_choice.select(clampi(int(InputProfile.mappings[String(CONTROLS[index])].axis), 0, RAW_AXIS_COUNT - 1))
-	axis_choice.item_selected.connect(_axis_changed.bind(axis_choice, index))
-	card.add_child(axis_choice)
+	var axis_display := Label.new()
+	axis_display.name = "MappedAxis%d" % index
+	axis_display.text = "AXIS-%d" % (int(InputProfile.mappings[String(CONTROLS[index])].axis) + 1)
+	axis_display.custom_minimum_size.x = 90
+	axis_display.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	axis_display.add_theme_color_override("font_color", Color("56c7ff"))
+	card.add_child(axis_display)
 	var invert := CheckButton.new()
 	invert.text = "反向"
 	invert.button_pressed = bool(InputProfile.mappings[String(CONTROLS[index])].invert)
@@ -338,19 +327,35 @@ func _add_actual_row(parent: VBoxContainer, axis_name: String) -> void:
 func _add_dict_slider(parent: VBoxContainer, caption: String, group: String, key: String, minimum: float, maximum: float, value: float) -> void:
 	_add_profile_slider(parent, caption, group, key, minimum, maximum, value, "")
 
-func _add_aux_choice(parent: HBoxContainer, caption: String, action: String) -> void:
-	var box := VBoxContainer.new()
-	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+func _add_aux_identify(parent: VBoxContainer, caption: String, action: String) -> void:
+	var box := HBoxContainer.new()
+	box.add_theme_constant_override("separation", 10)
 	parent.add_child(box)
 	var label := Label.new()
 	label.text = caption
+	label.custom_minimum_size.x = 180
 	box.add_child(label)
-	var choice := OptionButton.new()
-	choice.add_item("NONE", -1)
-	for button_index in 20: choice.add_item("BUTTON-%d" % (button_index + 1), button_index)
-	choice.select(int(InputProfile.aux_buttons.get(action, -1)) + 1)
-	choice.item_selected.connect(_aux_changed.bind(choice, action))
-	box.add_child(choice)
+	var channel := Label.new()
+	var current_button := int(InputProfile.aux_buttons.get(action, -1))
+	channel.text = "未识别" if current_button < 0 else "BUTTON-%d" % (current_button + 1)
+	channel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	channel.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	channel.add_theme_color_override("font_color", Color("f2c800"))
+	box.add_child(channel)
+	aux_labels[action] = channel
+	var identify := Button.new()
+	identify.text = "识别"
+	identify.custom_minimum_size.x = 92
+	identify.pressed.connect(_start_aux_sample.bind(action, caption))
+	box.add_child(identify)
+	buttons.append(identify)
+
+func _add_section_title(parent: VBoxContainer, caption: String) -> void:
+	var label := Label.new()
+	label.text = caption
+	label.add_theme_font_size_override("font_size", 19)
+	label.add_theme_color_override("font_color", Color("70b9ff"))
+	parent.add_child(label)
 
 func _rate_spin(parent: HBoxContainer, axis_name: String, key: String, minimum: float, maximum: float, value: float) -> void:
 	var spin := SpinBox.new()
@@ -377,17 +382,18 @@ func _basic_page() -> VBoxContainer:
 	var rate_top := HBoxContainer.new()
 	root.add_child(rate_top)
 	var rate_label := Label.new()
-	rate_label.text = "RATE 类型"
+	rate_label.text = "RATE 类型（摇杆到角速度的响应算法）"
 	rate_label.custom_minimum_size.x = 125
 	rate_top.add_child(rate_label)
 	var type_choice := OptionButton.new()
 	var rate_names := ["Actual", "Betaflight", "Raceflight", "KISS"]
-	for rate_name in rate_names: type_choice.add_item(rate_name)
+	var rate_labels := ["Actual 实际角速度", "Betaflight 穿越机", "Raceflight 竞速", "KISS 平滑"]
+	for rate_name in rate_labels: type_choice.add_item(rate_name)
 	type_choice.select(maxi(0, rate_names.find(InputProfile.rate_type)))
-	type_choice.item_selected.connect(_rate_type_changed.bind(type_choice))
+	type_choice.item_selected.connect(_rate_type_index_changed.bind(rate_names))
 	rate_top.add_child(type_choice)
 	var flight_choice := OptionButton.new()
-	for mode_name in ["Acro", "Angle", "Altitude"]: flight_choice.add_item(mode_name)
+	for mode_name in ["Acro 手动模式", "Angle 自稳模式", "Altitude 定高模式"]: flight_choice.add_item(mode_name)
 	flight_choice.select(maxi(0, ["Acro", "Angle", "Altitude"].find(InputProfile.flight_mode)))
 	flight_choice.item_selected.connect(_flight_mode_changed.bind(flight_choice))
 	rate_top.add_child(flight_choice)
@@ -422,6 +428,8 @@ func _basic_page() -> VBoxContainer:
 	_add_profile_slider(camera_grid, "视野 FOV", "camera", "fov", 70, 150, float(InputProfile.camera.fov), "°")
 	_add_profile_slider(camera_grid, "跟随距离", "camera", "follow_distance", 4, 18, float(InputProfile.camera.follow_distance), " m")
 	_add_profile_slider(camera_grid, "跟随高度", "camera", "follow_height", 1.5, 10, float(InputProfile.camera.follow_height), " m")
+	_add_profile_slider(camera_grid, "目视跟随距离", "camera", "los_distance", 4, 14, float(InputProfile.camera.los_distance), " m")
+	_add_profile_slider(camera_grid, "目视跟随高度", "camera", "los_height", 1.5, 8, float(InputProfile.camera.los_height), " m")
 	var component_header := Label.new()
 	component_header.text = "组件"
 	component_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -431,7 +439,24 @@ func _basic_page() -> VBoxContainer:
 	root.add_child(component_row)
 	_add_component_toggle(component_row, "LED", "led")
 	_add_component_toggle(component_row, "独立桨叶保护圈", "prop_guards")
+	_add_section_title(root, "机身颜色（即时应用）")
+	_add_color_palette(root, "机架", "body")
+	_add_color_palette(root, "点缀", "accent")
+	_add_color_palette(root, "螺旋桨", "prop")
+	_add_color_palette(root, "LED", "led")
 	return page
+
+func _add_color_palette(parent: Control, caption: String, part: String) -> void:
+	var row := HBoxContainer.new(); parent.add_child(row)
+	var label := Label.new(); label.text = caption; label.custom_minimum_size.x = 100; row.add_child(label)
+	for color_hex in ["7d5cff", "ff2d7d", "18b7ff", "18d775", "ffb312", "f4f4f4", "24262c"]:
+		var swatch := Button.new()
+		swatch.text = "■"
+		swatch.custom_minimum_size = Vector2(58, 38)
+		swatch.add_theme_font_size_override("font_size", 25)
+		swatch.add_theme_color_override("font_color", Color(color_hex))
+		swatch.pressed.connect(_color_changed.bind(part, color_hex))
+		row.add_child(swatch)
 
 func _add_compact_setting(parent: HBoxContainer, caption: String, group: String, key: String, minimum: float, maximum: float, value: float) -> void:
 	var box := VBoxContainer.new()
@@ -460,20 +485,65 @@ func _physics_page() -> VBoxContainer:
 	var page := _page("物理")
 	var body := _content(page)
 	var help := Label.new()
-	help.text = "这些参数直接作用于原生 C++ 刚体、旋翼和空气动力模型。"
+	help.text = "所有数值都直接写入原生刚体、旋翼和空气动力模型，不是装饰按钮。推荐小型足球机预设：420 g / 2450 KV / 4S。"
 	help.add_theme_font_size_override("font_size", 20)
 	body.add_child(help)
-	_add_profile_slider(body, "机体重量", "physics", "mass", 0.5, 3.0, float(InputProfile.physics.mass), " kg")
-	_add_profile_slider(body, "重力倍率", "physics", "gravity", 0.6, 1.4, float(InputProfile.physics.gravity), " x")
-	_add_profile_slider(body, "旋翼推力倍率", "physics", "thrust", 0.5, 1.5, float(InputProfile.physics.thrust), " x")
+	_add_profile_slider(body, "机体重量（质量与惯性感）", "physics", "mass", 0.20, 1.50, float(InputProfile.physics.mass), " kg")
+	_add_profile_slider(body, "重力（下坠加速度）", "physics", "gravity", 0.80, 1.50, float(InputProfile.physics.gravity), " x")
+	_add_profile_slider(body, "推力（四电机总动力）", "physics", "thrust", 0.50, 1.80, float(InputProfile.physics.thrust), " x")
 	_add_profile_slider(body, "低速阻力", "physics", "drag_low", 0.0, 0.20, float(InputProfile.physics.drag_low), "")
 	_add_profile_slider(body, "高速阻力", "physics", "drag_high", 0.02, 0.60, float(InputProfile.physics.drag_high), "")
 	_add_profile_slider(body, "空气乱流", "physics", "turbulence", 0.0, 2.0, float(InputProfile.physics.turbulence), "")
-	_add_profile_slider(body, "电机 KV", "physics", "motor_kv", 800.0, 3000.0, float(InputProfile.physics.motor_kv), " KV")
+	_add_profile_slider(body, "电机性能（真实 KV）", "physics", "motor_kv", 1200.0, 4200.0, float(InputProfile.physics.motor_kv), " KV")
 	_add_profile_slider(body, "电池电压", "physics", "voltage", 7.4, 25.2, float(InputProfile.physics.voltage), " V")
 	_add_profile_slider(body, "慢动作倍率", "general", "slow_motion", 0.2, 1.0, InputProfile.slow_motion, " x")
-	_add_profile_slider(body, "电机最大输出", "output", "motor_output_limit", 0.2, 0.8, InputProfile.motor_output_limit, "")
+	_add_profile_slider(body, "电机最大输出", "output", "motor_output_limit", 0.30, 1.0, InputProfile.motor_output_limit, "")
+	_add_section_title(body, "预设")
+	var presets := HBoxContainer.new()
+	body.add_child(presets)
+	_add_physics_preset(presets, "小型足球机 420g", 0.42, 2450.0, 1.0, 0.72)
+	_add_physics_preset(presets, "灵活竞速 650g", 0.65, 1950.0, 1.08, 0.85)
+	_add_physics_preset(presets, "训练柔和 500g", 0.50, 2200.0, 0.92, 0.66)
 	return page
+
+func _graphics_page() -> VBoxContainer:
+	var page := _page("画质与 OSD")
+	var body := _content(page)
+	_add_section_title(body, "图形设置")
+	_add_choice(body, "画质预设", ["低画质（高帧率）", "中画质", "高画质", "极高画质"], int(InputProfile.graphics.quality), _quality_changed)
+	_add_profile_slider(body, "渲染比例", "graphics", "render_scale", 0.50, 1.25, float(InputProfile.graphics.render_scale), " x")
+	_add_dict_toggle(body, "垂直同步 VSync（关闭可降低操作延迟）", "graphics", "vsync")
+	_add_dict_toggle(body, "动态阴影", "graphics", "shadows")
+	_add_dict_toggle(body, "辉光 Glow", "graphics", "glow")
+	_add_dict_toggle(body, "环境光遮蔽 SSAO", "graphics", "ssao")
+	_add_section_title(body, "OSD 屏幕显示")
+	_add_profile_slider(body, "OSD 比例", "osd", "scale", 0.70, 1.60, float(InputProfile.osd.scale), " x")
+	for item in [["显示全部 OSD", "visible"], ["摇杆视图", "sticks"], ["速度", "speed"], ["高度", "altitude"], ["飞行模式", "flight_mode"], ["相机模式", "camera_mode"], ["镜头仰角", "camera_angle"], ["中心点", "reticle"], ["帧数 FPS", "fps"]]:
+		_add_dict_toggle(body, String(item[0]), "osd", String(item[1]))
+	return page
+
+func _add_choice(parent: Control, caption: String, labels: Array, selected: int, callback: Callable) -> void:
+	var row := HBoxContainer.new()
+	parent.add_child(row)
+	var label := Label.new(); label.text = caption; label.custom_minimum_size.x = 260; row.add_child(label)
+	var choice := OptionButton.new()
+	for option in labels: choice.add_item(String(option))
+	choice.select(clampi(selected, 0, labels.size() - 1))
+	choice.item_selected.connect(callback)
+	row.add_child(choice)
+
+func _add_dict_toggle(parent: Control, caption: String, group: String, key: String) -> void:
+	var toggle := CheckButton.new()
+	toggle.text = caption
+	var settings: Dictionary = InputProfile.get(group)
+	toggle.button_pressed = bool(settings.get(key, false))
+	toggle.toggled.connect(_dict_toggle_changed.bind(group, key))
+	parent.add_child(toggle)
+
+func _add_physics_preset(parent: Control, caption: String, mass_value: float, kv: float, thrust_value: float, output_value: float) -> void:
+	var button := Button.new(); button.text = caption
+	button.pressed.connect(_physics_preset.bind(mass_value, kv, thrust_value, output_value))
+	parent.add_child(button)
 
 func _add_profile_slider(parent: Control, caption: String, group: String, key: String, minimum: float, maximum: float, value: float, suffix: String) -> void:
 	var row := HBoxContainer.new()
@@ -514,7 +584,10 @@ func _refresh_devices() -> void:
 		return
 	for button in buttons: button.disabled = false
 	for id in ids:
-		device.add_item("%d: %s" % [id, Input.get_joy_name(id)], id)
+		InputProfile.device_id = id if InputProfile.device_id not in ids else InputProfile.device_id
+		var detected_name := Input.get_joy_name(id).strip_edges()
+		if detected_name.is_empty() or detected_name == "Unknown": detected_name = "USB 遥控器 · " + Input.get_joy_guid(id).left(8)
+		device.add_item("%d: %s" % [id, detected_name], id)
 		if id == InputProfile.device_id: device.select(device.item_count - 1)
 func _select_device(index: int) -> void:
 	InputProfile.device_id = device.get_item_id(index)
@@ -524,13 +597,6 @@ func _update_live() -> void:
 		var map: Dictionary = InputProfile.mappings[String(CONTROLS[i])]
 		bars[i].value = InputProfile.value(CONTROLS[i]) * 100.0
 		values[i].text = "AXIS-%d  %+.0f" % [int(map.axis) + 1, bars[i].value]
-	var grid := get_tree().current_scene.find_child("RawGrid", true, false) as GridContainer
-	for axis in RAW_AXIS_COUNT:
-		var label := grid.get_node("Axis%d" % axis) as Label
-		label.text = "AXIS-%02d  %+.3f" % [axis + 1, InputProfile.raw_axis(axis)]
-	for button_index in raw_button_labels.size():
-		var pressed: bool = InputProfile.device_id in InputProfile.connected_devices() and Input.is_joy_button_pressed(InputProfile.device_id, button_index)
-		raw_button_labels[button_index].modulate = Color("ffd23f") if pressed else Color("75838b")
 	if monitor: monitor.queue_redraw()
 func _start_sample(index: int) -> void:
 	if sampling: return
@@ -566,6 +632,8 @@ func _finish_sample() -> void:
 		var midpoint := (minima[best_axis] + maxima[best_axis]) * 0.5
 		if absf(center - midpoint) > best_range * 0.20: center = midpoint
 	InputProfile.set_mapping(CONTROLS[current], best_axis, minima[best_axis], center, maxima[best_axis], invert)
+	var mapped_label := get_tree().current_scene.find_child("MappedAxis%d" % current, true, false) as Label
+	if mapped_label: mapped_label.text = "AXIS-%d" % (best_axis + 1)
 	hint.text = "完成：%s = AXIS-%d，方向%s，行程 %.0f%%。" % [LABELS[current], best_axis + 1, "已反向" if invert else "正常", best_range * 50.0]
 	if not full_calibration_queue.is_empty(): call_deferred("_start_next_full_channel")
 func _invert_changed(enabled: bool, index: int) -> void:
@@ -589,12 +657,14 @@ func _rate_preset(rc: float, super_rate: float, expo: float) -> void:
 	close_ui()
 	game.open_calibration()
 func _rate_type_changed(index: int, choice: OptionButton) -> void:
-	InputProfile.set_general_value("rate_type", choice.get_item_text(index))
+	InputProfile.set_general_value("rate_type", choice.get_item_text(index).get_slice(" ", 0))
+func _rate_type_index_changed(index: int, names: Array) -> void:
+	InputProfile.set_general_value("rate_type", String(names[index]))
 func _camera_mode_changed(index: int, choice: OptionButton) -> void:
 	InputProfile.set_general_value("camera_mode", choice.get_item_text(index))
 	game.set_camera_mode(InputProfile.camera_mode)
 func _flight_mode_changed(index: int, choice: OptionButton) -> void:
-	InputProfile.set_general_value("flight_mode", choice.get_item_text(index))
+	InputProfile.set_general_value("flight_mode", choice.get_item_text(index).get_slice(" ", 0))
 func _aux_changed(index: int, choice: OptionButton, action: String) -> void:
 	InputProfile.aux_buttons[action] = choice.get_item_id(index)
 	InputProfile.save_profile()
@@ -607,6 +677,12 @@ func _profile_changed(value: float, group: String, key: String, number: Label, s
 	number.text = "%.2f%s" % [value, suffix]
 	if group == "physics": InputProfile.set_physics_value(key, value)
 	elif group == "camera": InputProfile.set_camera_value(key, value)
+	elif group == "graphics" or group == "osd":
+		var settings: Dictionary = InputProfile.get(group)
+		settings[key] = value
+		InputProfile.set(group, settings)
+		InputProfile.save_profile()
+		InputProfile.profile_changed.emit()
 	elif group == "level":
 		InputProfile.level[key] = value
 		InputProfile.save_profile()
@@ -657,6 +733,49 @@ func _component_changed(enabled: bool, key: String) -> void:
 	InputProfile.components[key] = enabled
 	InputProfile.save_profile()
 	InputProfile.profile_changed.emit()
+
+func _start_aux_sample(action: String, caption: String) -> void:
+	if sampling or aux_sampling: return
+	current_aux = action
+	aux_sampling = true
+	for button in buttons: button.disabled = true
+	hint.text = "识别【%s】：请拨动一次对应开关或按键。" % caption
+
+func _dict_toggle_changed(enabled: bool, group: String, key: String) -> void:
+	var settings: Dictionary = InputProfile.get(group)
+	settings[key] = enabled
+	InputProfile.set(group, settings)
+	InputProfile.save_profile()
+	InputProfile.profile_changed.emit()
+
+func _quality_changed(index: int) -> void:
+	InputProfile.graphics["quality"] = index
+	# Each preset changes real renderer options; users can still override them below.
+	InputProfile.graphics["render_scale"] = [0.65, 0.85, 1.0, 1.25][index]
+	InputProfile.graphics["anti_aliasing"] = [0, 1, 2, 3][index]
+	InputProfile.graphics["shadows"] = index >= 1
+	InputProfile.graphics["glow"] = index >= 2
+	InputProfile.graphics["ssao"] = index >= 2
+	InputProfile.save_profile()
+	InputProfile.profile_changed.emit()
+	hint.text = "画质预设已即时应用；重新打开设置可查看对应数值"
+
+func _physics_preset(mass_value: float, kv: float, thrust_value: float, output_value: float) -> void:
+	InputProfile.physics["mass"] = mass_value
+	InputProfile.physics["motor_kv"] = kv
+	InputProfile.physics["thrust"] = thrust_value
+	InputProfile.motor_output_limit = output_value
+	InputProfile.save_profile()
+	InputProfile.profile_changed.emit()
+	hint.text = "物理预设已即时应用"
+
+func _color_changed(part: String, color_hex: String) -> void:
+	InputProfile.colors[part] = color_hex
+	InputProfile.save_profile()
+	InputProfile.profile_changed.emit()
+
+func _on_joy_connection_changed(_id: int, _connected: bool) -> void:
+	if visible: call_deferred("_refresh_devices")
 
 func _reference_theme() -> Theme:
 	var theme := Theme.new()

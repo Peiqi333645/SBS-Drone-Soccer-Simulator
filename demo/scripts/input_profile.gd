@@ -2,7 +2,7 @@ extends Node
 
 signal profile_changed
 const SAVE_PATH := "user://sbs_controller_profile.json"
-const PROFILE_VERSION := 5
+const PROFILE_VERSION := 6
 const AXES := [&"throttle", &"yaw", &"pitch", &"roll"]
 var device_id := 0
 var deadzone := 0.04
@@ -13,7 +13,7 @@ var bf_super_rate := 0.70
 var bf_rate_expo := 0.20
 var bf_yaw_rate := 0.85
 var bf_yaw_super_rate := 0.65
-var motor_output_limit := 0.62
+var motor_output_limit := 0.72
 var rate_type := "Betaflight"
 var flight_mode := "Acro"
 var camera_mode := "Chase"
@@ -34,18 +34,27 @@ var actual_rates := {
 }
 var level := {"sensitivity": 50.0, "angle_limit": 50.0}
 var components := {"led": true, "prop_guards": false}
-var physics := {"mass": 0.78, "gravity": 1.0, "thrust": 1.0, "drag_low": 0.025, "drag_high": 0.075, "turbulence": 0.0, "motor_kv": 1950.0, "voltage": 16.8}
-var camera := {"angle": 15.0, "fov": 100.0, "follow_distance": 9.0, "follow_height": 4.0, "motion_blur": 0.0, "lens_distortion": 0.0}
+var physics := {"mass": 0.42, "gravity": 1.0, "thrust": 1.0, "drag_low": 0.018, "drag_high": 0.055, "turbulence": 0.0, "motor_kv": 2450.0, "voltage": 16.8}
+var camera := {"angle": 25.0, "fov": 120.0, "follow_distance": 5.8, "follow_height": 2.2, "los_distance": 7.5, "los_height": 2.8, "motion_blur": 0.15, "lens_distortion": 0.08}
+var graphics := {"quality": 2, "render_scale": 1.0, "vsync": true, "shadows": true, "glow": true, "ssao": true, "anti_aliasing": 2}
+var osd := {"visible": true, "scale": 1.0, "sticks": true, "speed": true, "altitude": true, "flight_mode": true, "camera_mode": true, "camera_angle": true, "reticle": true, "fps": true}
+var colors := {"body":"7d5cff", "accent":"ff2d7d", "prop":"f4f4ff", "led":"31d8ff"}
 var mappings := {
 	# OpenTX/EdgeTX USB Joystick default order: AETR (Godot indices 0..3).
 	"roll": {"axis": 0, "min": -1.0, "center": 0.0, "max": 1.0, "invert": false, "deadzone": 0.04},
-	"pitch": {"axis": 1, "min": -1.0, "center": 0.0, "max": 1.0, "invert": true, "deadzone": 0.04},
-	"throttle": {"axis": 2, "min": -1.0, "center": 0.0, "max": 1.0, "invert": true, "deadzone": 0.02},
+	"pitch": {"axis": 1, "min": -1.0, "center": 0.0, "max": 1.0, "invert": false, "deadzone": 0.04},
+	"throttle": {"axis": 2, "min": -1.0, "center": 0.0, "max": 1.0, "invert": false, "deadzone": 0.02},
 	"yaw": {"axis": 3, "min": -1.0, "center": 0.0, "max": 1.0, "invert": false, "deadzone": 0.04},
 }
 
 func _ready() -> void:
 	load_profile()
+	select_available_device()
+func select_available_device() -> int:
+	var devices := connected_devices()
+	if devices.is_empty(): return -1
+	if device_id not in devices: device_id = devices[0]
+	return device_id
 func request_calibration() -> void:
 	calibration_requested = true
 func consume_calibration_request() -> bool:
@@ -57,7 +66,12 @@ func has_saved_profile() -> bool:
 func connected_devices() -> Array[int]:
 	return Input.get_connected_joypads()
 func device_name() -> String:
-	return Input.get_joy_name(device_id) if device_id in connected_devices() else "未检测到 USB 遥控器"
+	if select_available_device() < 0: return "未检测到 USB 遥控器"
+	var detected := Input.get_joy_name(device_id).strip_edges()
+	if detected.is_empty() or detected == "Unknown":
+		var guid := Input.get_joy_guid(device_id)
+		detected = "USB 遥控器" if guid.is_empty() else "USB 遥控器 · " + guid.left(8)
+	return "%d: %s" % [device_id, detected]
 func raw_axis(index: int) -> float:
 	if device_id not in connected_devices(): return 0.0
 	return Input.get_joy_axis(device_id, index)
@@ -85,7 +99,7 @@ func set_mapping(control: StringName, axis: int, minimum: float, center: float, 
 	save_profile()
 	profile_changed.emit()
 func save_profile() -> void:
-	var flight := {"bf_rc_rate": bf_rc_rate, "bf_super_rate": bf_super_rate, "bf_rate_expo": bf_rate_expo, "bf_yaw_rate": bf_yaw_rate, "bf_yaw_super_rate": bf_yaw_super_rate, "motor_output_limit": motor_output_limit, "throttle_mid": throttle_mid, "throttle_expo": throttle_expo, "axis_rates": axis_rates, "actual_rates": actual_rates, "level": level, "components": components, "physics": physics, "camera": camera, "rate_type": rate_type, "flight_mode": flight_mode, "camera_mode": camera_mode, "slow_motion": slow_motion, "motor_idle": motor_idle, "aux_buttons": aux_buttons}
+	var flight := {"bf_rc_rate": bf_rc_rate, "bf_super_rate": bf_super_rate, "bf_rate_expo": bf_rate_expo, "bf_yaw_rate": bf_yaw_rate, "bf_yaw_super_rate": bf_yaw_super_rate, "motor_output_limit": motor_output_limit, "throttle_mid": throttle_mid, "throttle_expo": throttle_expo, "axis_rates": axis_rates, "actual_rates": actual_rates, "level": level, "components": components, "physics": physics, "camera": camera, "graphics": graphics, "osd": osd, "colors": colors, "rate_type": rate_type, "flight_mode": flight_mode, "camera_mode": camera_mode, "slow_motion": slow_motion, "motor_idle": motor_idle, "aux_buttons": aux_buttons}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file: file.store_string(JSON.stringify({"version": PROFILE_VERSION, "device_id": device_id, "deadzone": deadzone, "expo": expo, "mappings": mappings, "flight": flight}, "\t"))
 func load_profile() -> void:
@@ -132,6 +146,12 @@ func load_profile() -> void:
 	if loaded_physics is Dictionary: physics.merge(loaded_physics, true)
 	var loaded_camera = flight.get("camera", {})
 	if loaded_camera is Dictionary: camera.merge(loaded_camera, true)
+	var loaded_graphics = flight.get("graphics", {})
+	if loaded_graphics is Dictionary: graphics.merge(loaded_graphics, true)
+	var loaded_osd = flight.get("osd", {})
+	if loaded_osd is Dictionary: osd.merge(loaded_osd, true)
+	var loaded_colors = flight.get("colors", {})
+	if loaded_colors is Dictionary: colors.merge(loaded_colors, true)
 	if profile_version < PROFILE_VERSION:
 		# v4 shipped with the four primary channels rotated (TAER instead of AETR).
 		# Migrate only that exact broken factory layout; never overwrite a user's calibration.
@@ -146,6 +166,12 @@ func load_profile() -> void:
 		if is_equal_approx(motor_output_limit, 0.38): motor_output_limit = 0.62
 		if is_equal_approx(throttle_mid, 0.35): throttle_mid = 0.50
 		if is_equal_approx(throttle_expo, 0.30): throttle_expo = 0.15
+		if profile_version < 6:
+			# Correct the two vertical channels from the previous build.
+			mappings["pitch"]["invert"] = false
+			mappings["throttle"]["invert"] = false
+			physics = {"mass":0.42,"gravity":1.0,"thrust":1.0,"drag_low":0.018,"drag_high":0.055,"turbulence":0.0,"motor_kv":2450.0,"voltage":16.8}
+			motor_output_limit = 0.72
 		save_profile()
 
 func set_rate_value(axis_name: String, key: String, value: float) -> void:
@@ -173,7 +199,7 @@ func reset_defaults() -> void:
 	flight_mode = "Acro"
 	camera_mode = "Chase"
 	slow_motion = 1.0
-	motor_output_limit = 0.62
+	motor_output_limit = 0.72
 	motor_idle = 0.055
 	axis_rates = {"roll":{"rc":1.0,"super":0.70,"expo":0.20},"pitch":{"rc":1.0,"super":0.70,"expo":0.20},"yaw":{"rc":0.85,"super":0.65,"expo":0.10}}
 	actual_rates = {"roll":{"center":220.0,"max":850.0,"expo":0.0,"ff":0.0},"pitch":{"center":220.0,"max":850.0,"expo":0.0,"ff":0.0},"yaw":{"center":220.0,"max":750.0,"expo":0.0,"ff":0.0}}
@@ -181,8 +207,11 @@ func reset_defaults() -> void:
 	components = {"led":true,"prop_guards":false}
 	throttle_mid = 0.50
 	throttle_expo = 0.15
-	mappings = {"roll":{"axis":0,"min":-1.0,"center":0.0,"max":1.0,"invert":false,"deadzone":0.04},"pitch":{"axis":1,"min":-1.0,"center":0.0,"max":1.0,"invert":true,"deadzone":0.04},"throttle":{"axis":2,"min":-1.0,"center":0.0,"max":1.0,"invert":true,"deadzone":0.02},"yaw":{"axis":3,"min":-1.0,"center":0.0,"max":1.0,"invert":false,"deadzone":0.04}}
-	physics = {"mass":0.78,"gravity":1.0,"thrust":1.0,"drag_low":0.025,"drag_high":0.075,"turbulence":0.0,"motor_kv":1950.0,"voltage":16.8}
-	camera = {"angle":30.0,"fov":120.0,"follow_distance":9.0,"follow_height":4.0,"motion_blur":0.0,"lens_distortion":0.0}
+	mappings = {"roll":{"axis":0,"min":-1.0,"center":0.0,"max":1.0,"invert":false,"deadzone":0.04},"pitch":{"axis":1,"min":-1.0,"center":0.0,"max":1.0,"invert":false,"deadzone":0.04},"throttle":{"axis":2,"min":-1.0,"center":0.0,"max":1.0,"invert":false,"deadzone":0.02},"yaw":{"axis":3,"min":-1.0,"center":0.0,"max":1.0,"invert":false,"deadzone":0.04}}
+	physics = {"mass":0.42,"gravity":1.0,"thrust":1.0,"drag_low":0.018,"drag_high":0.055,"turbulence":0.0,"motor_kv":2450.0,"voltage":16.8}
+	camera = {"angle":25.0,"fov":120.0,"follow_distance":5.8,"follow_height":2.2,"los_distance":7.5,"los_height":2.8,"motion_blur":0.15,"lens_distortion":0.08}
+	graphics = {"quality":2,"render_scale":1.0,"vsync":true,"shadows":true,"glow":true,"ssao":true,"anti_aliasing":2}
+	osd = {"visible":true,"scale":1.0,"sticks":true,"speed":true,"altitude":true,"flight_mode":true,"camera_mode":true,"camera_angle":true,"reticle":true,"fps":true}
+	colors = {"body":"7d5cff","accent":"ff2d7d","prop":"f4f4ff","led":"31d8ff"}
 	save_profile()
 	profile_changed.emit()

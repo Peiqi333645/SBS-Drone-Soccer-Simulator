@@ -98,7 +98,8 @@ func _build_menu() -> void:
 	_device_label.custom_minimum_size.y = 52
 	column.add_child(_device_label)
 	column.add_child(_make_button("开始训练", _start_training, true))
-	column.add_child(_make_button("遥控器校准", _start_calibration))
+	column.add_child(_make_button("控制器识别与校准", _start_calibration))
+	column.add_child(_make_button("设置 · 画质 / OSD / 飞控", _start_settings))
 	column.add_child(_make_button("操作说明", _toggle_help))
 	column.add_child(_make_button("退出游戏", _quit_game))
 	var note := Label.new()
@@ -157,6 +158,10 @@ func _start_training() -> void:
 
 
 func _start_calibration() -> void:
+	InputProfile.request_calibration()
+	get_tree().change_scene_to_file(ARENA_SCENE)
+
+func _start_settings() -> void:
 	InputProfile.request_calibration()
 	get_tree().change_scene_to_file(ARENA_SCENE)
 

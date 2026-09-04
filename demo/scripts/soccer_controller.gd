@@ -39,7 +39,7 @@ func _process(delta: float) -> void:
 		disarm()
 		return
 	var throttle: float = clampf((InputProfile.value(&"throttle") + 1.0) * 0.5, 0.0, 1.0)
-	var response: float = 1.0 - exp(-lerpf(4.0, 16.0, 1.0 - throttle_smoothing) * delta)
+	var response: float = 1.0 - exp(-lerpf(10.0, 42.0, 1.0 - throttle_smoothing) * delta)
 	throttle_smoothed = lerpf(throttle_smoothed, _throttle_curve(throttle), response)
 	# Armed motors keep a small Betaflight-style idle; this prevents dead-prop instability.
 	throttle_smoothed = maxf(throttle_smoothed, InputProfile.motor_idle * InputProfile.motor_output_limit)
@@ -143,6 +143,38 @@ func apply_profile() -> void:
 	if chase:
 		chase.set("follow_distance", float(InputProfile.camera.follow_distance))
 		chase.set("follow_height", float(InputProfile.camera.follow_height))
+	# Graphics and OSD settings are applied immediately, so every control has a
+	# visible runtime effect rather than only changing a saved number.
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if bool(InputProfile.graphics.vsync) else DisplayServer.VSYNC_DISABLED)
+	get_viewport().scaling_3d_scale = float(InputProfile.graphics.render_scale)
+	var msaa_levels: Array[Viewport.MSAA] = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X, Viewport.MSAA_8X]
+	get_viewport().msaa_3d = msaa_levels[clampi(int(InputProfile.graphics.anti_aliasing), 0, 3)]
+	var world_environment := game.get_node_or_null("../WorldEnvironment") as WorldEnvironment
+	if world_environment and world_environment.environment:
+		world_environment.environment.glow_enabled = bool(InputProfile.graphics.glow)
+		world_environment.environment.ssao_enabled = bool(InputProfile.graphics.ssao)
+	var sun := game.get_node_or_null("../Arena/Sun") as DirectionalLight3D
+	if sun: sun.shadow_enabled = bool(InputProfile.graphics.shadows)
+	var body_color := Color(String(InputProfile.colors.body))
+	var accent_color := Color(String(InputProfile.colors.accent))
+	var prop_color := Color(String(InputProfile.colors.prop))
+	var led_color := Color(String(InputProfile.colors.led))
+	for node in drone.get_children():
+		var mesh := node as MeshInstance3D
+		if mesh == null: continue
+		var part_name := String(mesh.name)
+		if part_name.contains("Arm") or part_name.contains("Shell") or part_name == "Battery":
+			var material := mesh.material_override.duplicate() as StandardMaterial3D
+			if material: material.albedo_color = body_color; mesh.material_override = material
+		elif part_name.begins_with("Prop"):
+			var prop_material := mesh.material_override.duplicate() as StandardMaterial3D
+			if prop_material: prop_material.albedo_color = prop_color; mesh.material_override = prop_material
+		elif part_name.contains("Lens") or part_name.begins_with("Antenna"):
+			var accent_material := mesh.material_override.duplicate() as StandardMaterial3D
+			if accent_material: accent_material.albedo_color = accent_color; mesh.material_override = accent_material
+		elif part_name.contains("Light"):
+			var led_material := mesh.material_override.duplicate() as StandardMaterial3D
+			if led_material: led_material.albedo_color = led_color; led_material.emission = led_color; mesh.material_override = led_material
 
 func arm() -> void:
 	if armed or game.input_blocked: return

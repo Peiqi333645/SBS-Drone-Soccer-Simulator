@@ -9,17 +9,30 @@ var throttle_smoothed := 0.0
 var roll_filtered := 0.0
 var pitch_filtered := 0.0
 var yaw_filtered := 0.0
+var altitude_target := 1.5
+var last_flight_mode := ""
+var aux_previous := {}
 func _ready() -> void:
 	drone = get_node(drone_path) as DroneBody
 	game = get_node(game_path)
 	InputProfile.profile_changed.connect(apply_profile)
 	apply_profile()
+	Engine.time_scale = InputProfile.slow_motion
 func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("drone_arm"): arm()
 	if Input.is_action_just_pressed("drone_disarm"): disarm()
 	if Input.is_action_just_pressed("soccer_reset"): game.reset_drone()
 	if Input.is_action_just_pressed("soccer_camera"): game.toggle_camera()
 	if Input.is_action_just_pressed("soccer_calibrate"): game.open_calibration()
+	if _aux_pressed("reset"): game.reset_drone()
+	if _aux_pressed("camera"): game.toggle_camera()
+	if _aux_pressed("slow_motion"):
+		InputProfile.slow_motion = 0.35 if InputProfile.slow_motion > 0.5 else 1.0
+		Engine.time_scale = InputProfile.slow_motion
+	if _aux_pressed("flight_mode"):
+		var modes := ["Acro", "Angle", "Altitude"]
+		InputProfile.flight_mode = modes[(modes.find(InputProfile.flight_mode) + 1) % modes.size()]
+		InputProfile.save_profile()
 	if not armed or game.input_blocked: return
 	var throttle: float = clampf((InputProfile.value(&"throttle") + 1.0) * 0.5, 0.0, 1.0)
 	var response: float = 1.0 - exp(-lerpf(4.0, 16.0, 1.0 - throttle_smoothing) * delta)
@@ -32,14 +45,46 @@ func _process(delta: float) -> void:
 		game.set_status("输入异常，已自动锁定")
 		disarm()
 		return
-	var roll_values: Dictionary = InputProfile.axis_rates["roll"]
-	var pitch_values: Dictionary = InputProfile.axis_rates["pitch"]
-	var yaw_values: Dictionary = InputProfile.axis_rates["yaw"]
-	var roll_rate: float = _bf_rate(roll_filtered, float(roll_values.rc), float(roll_values.super), float(roll_values.expo))
-	var pitch_rate: float = _bf_rate(pitch_filtered, float(pitch_values.rc), float(pitch_values.super), float(pitch_values.expo))
-	var yaw_rate: float = _bf_rate(yaw_filtered, float(yaw_values.rc), float(yaw_values.super), float(yaw_values.expo))
-	drone.set_rate_setpoint(roll_rate, pitch_rate, yaw_rate, throttle_smoothed)
+	var roll_rate: float = _command_rate("roll", roll_filtered)
+	var pitch_rate: float = _command_rate("pitch", pitch_filtered)
+	var yaw_rate: float = _command_rate("yaw", yaw_filtered)
+	var mode: String = InputProfile.flight_mode
+	if mode != last_flight_mode:
+		last_flight_mode = mode
+		altitude_target = float(drone.get_telemetry().get("altitude", drone.global_position.y))
+	if mode == "Acro":
+		drone.set_rate_setpoint(roll_rate, pitch_rate, yaw_rate, throttle_smoothed)
+	else:
+		var angle_limit: float = deg_to_rad(float(InputProfile.level.angle_limit))
+		var thrust: float = throttle_smoothed
+		if mode == "Altitude":
+			var telemetry: Dictionary = drone.get_telemetry()
+			var vertical_speed: float = float(telemetry.get("vertical_speed", 0.0))
+			altitude_target += (throttle - 0.5) * 2.5 * delta
+			var altitude_error: float = altitude_target - float(telemetry.get("altitude", 0.0))
+			thrust = clampf(_throttle_curve(0.5) + altitude_error * 0.055 - vertical_speed * 0.035, 0.0, InputProfile.motor_output_limit)
+		drone.set_attitude_setpoint(roll_filtered * angle_limit, pitch_filtered * angle_limit, yaw_rate, thrust)
 	if drone.global_position.y < -2.0 or drone.global_position.y > 60.0: game.reset_drone()
+func _command_rate(axis_name: String, stick: float) -> float:
+	if InputProfile.rate_type == "Actual":
+		var values: Dictionary = InputProfile.actual_rates[axis_name]
+		var center: float = float(values.center)
+		var maximum: float = float(values.max)
+		var expo_value: float = float(values.expo)
+		var shaped: float = stick * (1.0 - expo_value) + stick * stick * stick * expo_value
+		var rate_deg: float = center * shaped + (maximum - center) * pow(absf(shaped), 3.0) * signf(shaped)
+		return deg_to_rad(rate_deg)
+	var values: Dictionary = InputProfile.axis_rates[axis_name]
+	var rc: float = float(values.rc)
+	var super_value: float = float(values.super)
+	var expo_value: float = float(values.expo)
+	if InputProfile.rate_type == "Raceflight":
+		super_value = clampf(super_value * 1.08, 0.0, 0.95)
+	elif InputProfile.rate_type == "KISS":
+		rc *= 0.92
+		expo_value = clampf(expo_value + 0.08, 0.0, 1.0)
+	return _bf_rate(stick, rc, super_value, expo_value)
+
 func _bf_rate(stick: float, rc_rate: float, super_rate: float, rate_expo: float) -> float:
 	var x: float = clampf(stick, -1.0, 1.0)
 	var shaped: float = x * (1.0 - rate_expo) + x * x * x * rate_expo
@@ -89,6 +134,8 @@ func arm() -> void:
 	roll_filtered = 0.0
 	pitch_filtered = 0.0
 	yaw_filtered = 0.0
+	altitude_target = float(drone.get_telemetry().get("altitude", drone.global_position.y))
+	last_flight_mode = InputProfile.flight_mode
 	drone.sleeping = false
 	drone.arm()
 	armed = true
@@ -105,6 +152,14 @@ func disarm() -> void:
 	game.set_status("已锁定")
 func force_disarm() -> void:
 	disarm()
+func _aux_pressed(action: String) -> bool:
+	var button: int = int(InputProfile.aux_buttons.get(action, -1))
+	if button < 0 or InputProfile.device_id not in InputProfile.connected_devices(): return false
+	var down: bool = Input.is_joy_button_pressed(InputProfile.device_id, button)
+	var previous: bool = bool(aux_previous.get(action, false))
+	aux_previous[action] = down
+	return down and not previous
+
 func rate_summary() -> String:
 	var r: Dictionary = InputProfile.axis_rates["roll"]
 	return "BF R %.2f / %.2f / %.2f   输出 %.0f%%" % [float(r.rc), float(r.super), float(r.expo), InputProfile.motor_output_limit * 100.0]

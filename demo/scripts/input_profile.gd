@@ -32,7 +32,7 @@ var actual_rates := {
 	"yaw": {"center": 220.0, "max": 750.0, "expo": 0.0, "ff": 0.0},
 }
 var level := {"sensitivity": 50.0, "angle_limit": 50.0}
-var physics := {"mass": 1.5, "gravity": 1.0, "thrust": 1.0, "drag_low": 0.06, "drag_high": 0.32, "turbulence": 0.0}
+var physics := {"mass": 1.5, "gravity": 1.0, "thrust": 1.0, "drag_low": 0.06, "drag_high": 0.32, "turbulence": 0.0, "motor_kv": 2300.0, "voltage": 16.8}
 var camera := {"angle": 15.0, "fov": 100.0, "follow_distance": 9.0, "follow_height": 4.0}
 var mappings := {
 	"throttle": {"axis": 1, "min": -1.0, "center": 0.0, "max": 1.0, "invert": true},
@@ -156,7 +156,7 @@ func reset_defaults() -> void:
 	axis_rates = {"roll":{"rc":1.0,"super":0.70,"expo":0.20},"pitch":{"rc":1.0,"super":0.70,"expo":0.20},"yaw":{"rc":0.85,"super":0.65,"expo":0.10}}
 	actual_rates = {"roll":{"center":220.0,"max":850.0,"expo":0.0,"ff":0.0},"pitch":{"center":220.0,"max":850.0,"expo":0.0,"ff":0.0},"yaw":{"center":220.0,"max":750.0,"expo":0.0,"ff":0.0}}
 	level = {"sensitivity":50.0,"angle_limit":50.0}
-	physics = {"mass":1.5,"gravity":1.0,"thrust":1.0,"drag_low":0.06,"drag_high":0.32,"turbulence":0.0}
+	physics = {"mass":1.5,"gravity":1.0,"thrust":1.0,"drag_low":0.06,"drag_high":0.32,"turbulence":0.0,"motor_kv":2300.0,"voltage":16.8}
 	camera = {"angle":30.0,"fov":120.0,"follow_distance":9.0,"follow_height":4.0}
 	save_profile()
 	profile_changed.emit()

@@ -110,6 +110,9 @@ func apply_profile() -> void:
 	drone.drag_linear = float(InputProfile.physics.drag_low)
 	drone.drag_quadratic = float(InputProfile.physics.drag_high)
 	drone.turbulence_intensity = float(InputProfile.physics.turbulence)
+	drone.motor_kv = float(InputProfile.physics.motor_kv)
+	drone.max_voltage = float(InputProfile.physics.voltage)
+	Engine.time_scale = InputProfile.slow_motion
 	var fpv := game.get_node_or_null("../DroneBody/FPVCamera") as Camera3D
 	var chase := game.get_node_or_null("../ChaseCamera") as Camera3D
 	if fpv:
@@ -140,7 +143,7 @@ func arm() -> void:
 	drone.arm()
 	armed = true
 	throttle_smoothed = 0.0
-	game.set_status("已解锁 · Acro / BF Rate")
+	game.set_status("已解锁 · %s / %s Rate" % [InputProfile.flight_mode, InputProfile.rate_type])
 func disarm() -> void:
 	if not armed: return
 	drone.disarm()
@@ -162,4 +165,4 @@ func _aux_pressed(action: String) -> bool:
 
 func rate_summary() -> String:
 	var r: Dictionary = InputProfile.axis_rates["roll"]
-	return "BF R %.2f / %.2f / %.2f   输出 %.0f%%" % [float(r.rc), float(r.super), float(r.expo), InputProfile.motor_output_limit * 100.0]
+	return "%s · %s   R %.2f/%.2f/%.2f   输出 %.0f%%" % [InputProfile.flight_mode, InputProfile.rate_type, float(r.rc), float(r.super), float(r.expo), InputProfile.motor_output_limit * 100.0]

@@ -20,10 +20,10 @@ background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 3
 ambient_light_color = Color(0.78, 0.86, 1, 1)
-ambient_light_energy = 0.72
+ambient_light_energy = 0.58
 ambient_light_sky_contribution = 0.65
 reflected_light_source = 2
-tonemap_exposure = 1.12
+tonemap_exposure = 0.88
 ssao_enabled = true
 ssao_radius = 1.6
 ssao_intensity = 1.35
@@ -173,74 +173,75 @@ mesh = SubResource("BatteryMesh")
 material_override = SubResource("CoreMat")
 
 [node name="ArmX" type="MeshInstance3D" parent="DroneBody"]
+rotation_degrees = Vector3(0, 45, 0)
 mesh = SubResource("ArmMesh")
 material_override = SubResource("CoreMat")
 
 [node name="ArmZ" type="MeshInstance3D" parent="DroneBody"]
-rotation_degrees = Vector3(0, 90, 0)
+rotation_degrees = Vector3(0, -45, 0)
 mesh = SubResource("ArmMesh")
 material_override = SubResource("CoreMat")
 
 [node name="RotorFront" type="MeshInstance3D" parent="DroneBody"]
-position = Vector3(0, 0.075, -0.3)
+position = Vector3(0.28, 0.075, -0.28)
 mesh = SubResource("RotorMesh")
 material_override = SubResource("RotorMat")
 
 [node name="RotorBack" type="MeshInstance3D" parent="DroneBody"]
-position = Vector3(0, 0.075, 0.3)
+position = Vector3(-0.28, 0.075, 0.28)
 mesh = SubResource("RotorMesh")
 material_override = SubResource("RotorMat")
 
 [node name="RotorLeft" type="MeshInstance3D" parent="DroneBody"]
-position = Vector3(-0.3, 0.075, 0)
+position = Vector3(-0.28, 0.075, -0.28)
 mesh = SubResource("RotorMesh")
 material_override = SubResource("RotorMat")
 
 [node name="RotorRight" type="MeshInstance3D" parent="DroneBody"]
-position = Vector3(0.3, 0.075, 0)
+position = Vector3(0.28, 0.075, 0.28)
 mesh = SubResource("RotorMesh")
 material_override = SubResource("RotorMat")
 
 [node name="MotorFront" type="MeshInstance3D" parent="DroneBody"]
-position = Vector3(0, 0.035, -0.3)
+position = Vector3(0.28, 0.035, -0.28)
 mesh = SubResource("MotorMesh")
 material_override = SubResource("CoreMat")
 
 [node name="MotorBack" type="MeshInstance3D" parent="DroneBody"]
-position = Vector3(0, 0.035, 0.3)
+position = Vector3(-0.28, 0.035, 0.28)
 mesh = SubResource("MotorMesh")
 material_override = SubResource("CoreMat")
 
 [node name="MotorLeft" type="MeshInstance3D" parent="DroneBody"]
-position = Vector3(-0.3, 0.035, 0)
+position = Vector3(-0.28, 0.035, -0.28)
 mesh = SubResource("MotorMesh")
 material_override = SubResource("CoreMat")
 
 [node name="MotorRight" type="MeshInstance3D" parent="DroneBody"]
-position = Vector3(0.3, 0.035, 0)
+position = Vector3(0.28, 0.035, 0.28)
 mesh = SubResource("MotorMesh")
 material_override = SubResource("CoreMat")
 
 [node name="PropFront" type="MeshInstance3D" parent="DroneBody"]
-position = Vector3(0, 0.085, -0.3)
+position = Vector3(0.28, 0.085, -0.28)
 rotation_degrees = Vector3(0, 30, 0)
 mesh = SubResource("PropMesh")
 material_override = SubResource("RotorMat")
 
 [node name="PropBack" type="MeshInstance3D" parent="DroneBody"]
-position = Vector3(0, 0.085, 0.3)
+position = Vector3(-0.28, 0.085, 0.28)
 rotation_degrees = Vector3(0, -30, 0)
 mesh = SubResource("PropMesh")
 material_override = SubResource("RotorMat")
 
 [node name="PropLeft" type="MeshInstance3D" parent="DroneBody"]
-position = Vector3(-0.3, 0.085, 0)
+position = Vector3(-0.28, 0.085, -0.28)
 rotation_degrees = Vector3(0, -30, 0)
 mesh = SubResource("PropMesh")
 material_override = SubResource("RotorMat")
 
 [node name="PropRight" type="MeshInstance3D" parent="DroneBody"]
-position = Vector3(0.3, 0.085, 0)
+position = Vector3(0.28, 0.085, 0.28)
 rotation_degrees = Vector3(0, 30, 0)
 mesh = SubResource("PropMesh")
 material_override = SubResource("RotorMat")

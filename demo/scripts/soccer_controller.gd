@@ -18,25 +18,28 @@ func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("soccer_camera"): game.toggle_camera()
 	if Input.is_action_just_pressed("soccer_calibrate"): game.open_calibration()
 	if not armed or game.input_blocked: return
-	var throttle := clampf((InputProfile.value(&"throttle") + 1.0) * 0.5, 0.0, 1.0)
-	var response := 1.0 - exp(-lerpf(4.0, 16.0, 1.0 - throttle_smoothing) * delta)
+	var throttle: float = clampf((InputProfile.value(&"throttle") + 1.0) * 0.5, 0.0, 1.0)
+	var response: float = 1.0 - exp(-lerpf(4.0, 16.0, 1.0 - throttle_smoothing) * delta)
 	throttle_smoothed = lerpf(throttle_smoothed, _throttle_curve(throttle), response)
-	var roll_rate := _bf_rate(InputProfile.value(&"roll"), InputProfile.bf_rc_rate, InputProfile.bf_super_rate, InputProfile.bf_rate_expo)
-	var pitch_rate := _bf_rate(InputProfile.value(&"pitch"), InputProfile.bf_rc_rate, InputProfile.bf_super_rate, InputProfile.bf_rate_expo)
-	var yaw_rate := _bf_rate(InputProfile.value(&"yaw"), InputProfile.bf_yaw_rate, InputProfile.bf_yaw_super_rate, 0.0)
+	var roll_values: Dictionary = InputProfile.axis_rates["roll"]
+	var pitch_values: Dictionary = InputProfile.axis_rates["pitch"]
+	var yaw_values: Dictionary = InputProfile.axis_rates["yaw"]
+	var roll_rate: float = _bf_rate(InputProfile.value(&"roll"), float(roll_values.rc), float(roll_values.super), float(roll_values.expo))
+	var pitch_rate: float = _bf_rate(InputProfile.value(&"pitch"), float(pitch_values.rc), float(pitch_values.super), float(pitch_values.expo))
+	var yaw_rate: float = _bf_rate(InputProfile.value(&"yaw"), float(yaw_values.rc), float(yaw_values.super), float(yaw_values.expo))
 	drone.set_rate_setpoint(roll_rate, pitch_rate, yaw_rate, throttle_smoothed)
 	if drone.global_position.y < -2.0 or drone.global_position.y > 60.0: game.reset_drone()
 func _bf_rate(stick: float, rc_rate: float, super_rate: float, rate_expo: float) -> float:
-	var x := clampf(stick, -1.0, 1.0)
-	var shaped := x * (1.0 - rate_expo) + x * x * x * rate_expo
-	var rc := rc_rate
+	var x: float = clampf(stick, -1.0, 1.0)
+	var shaped: float = x * (1.0 - rate_expo) + x * x * x * rate_expo
+	var rc: float = rc_rate
 	if rc > 2.0: rc += 14.54 * (rc - 2.0)
-	var degrees_per_second := 200.0 * rc * shaped
+	var degrees_per_second: float = 200.0 * rc * shaped
 	degrees_per_second /= maxf(0.05, 1.0 - absf(shaped) * super_rate)
 	return deg_to_rad(degrees_per_second)
 func _throttle_curve(value: float) -> float:
-	var t := clampf(value, 0.0, 1.0)
-	var mid := clampf(InputProfile.throttle_mid, 0.1, 0.9)
+	var t: float = clampf(value, 0.0, 1.0)
+	var mid: float = clampf(InputProfile.throttle_mid, 0.1, 0.9)
 	var shaped: float
 	if t < mid:
 		shaped = mid * pow(t / mid, 1.0 + InputProfile.throttle_expo)
@@ -62,7 +65,7 @@ func apply_profile() -> void:
 
 func arm() -> void:
 	if armed or game.input_blocked: return
-	var throttle := (InputProfile.value(&"throttle") + 1.0) * 0.5
+	var throttle: float = (InputProfile.value(&"throttle") + 1.0) * 0.5
 	if throttle > 0.08:
 		game.set_status("无法解锁：请先把油门杆拉到最低")
 		return

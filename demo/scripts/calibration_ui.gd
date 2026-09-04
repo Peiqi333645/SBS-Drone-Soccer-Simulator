@@ -1,6 +1,7 @@
 extends CanvasLayer
 const CONTROLS := [&"roll", &"pitch", &"yaw", &"throttle"]
 const LABELS := ["ROLL 横滚", "PITCH 俯仰", "YAW 偏航", "THROTTLE 油门"]
+const POSITIVE_DIRECTIONS := ["向右", "向后拉（机头抬起）", "向右", "推到最高"]
 const SAMPLE_SECONDS := 4.0
 const RAW_AXIS_COUNT := 16
 @export var game_path: NodePath
@@ -20,6 +21,7 @@ var sample_time := 0.0
 var baseline: Array[float] = []
 var minima: Array[float] = []
 var maxima: Array[float] = []
+var positive_motion: Array[float] = []
 
 func _ready() -> void:
 	game = get_node(game_path)
@@ -35,6 +37,9 @@ func _process(delta: float) -> void:
 		var raw: float = InputProfile.raw_axis(axis)
 		minima[axis] = minf(minima[axis], raw)
 		maxima[axis] = maxf(maxima[axis], raw)
+		if sample_time <= SAMPLE_SECONDS * 0.5:
+			var movement: float = raw - baseline[axis]
+			if absf(movement) > absf(positive_motion[axis]): positive_motion[axis] = movement
 	progress.value = sample_time
 	if sample_time >= SAMPLE_SECONDS: _finish_sample()
 
@@ -479,13 +484,14 @@ func _start_sample(index: int) -> void:
 	sampling = true
 	sample_time = 0.0
 	progress.value = 0
-	baseline.resize(RAW_AXIS_COUNT); minima.resize(RAW_AXIS_COUNT); maxima.resize(RAW_AXIS_COUNT)
+	baseline.resize(RAW_AXIS_COUNT); minima.resize(RAW_AXIS_COUNT); maxima.resize(RAW_AXIS_COUNT); positive_motion.resize(RAW_AXIS_COUNT)
 	for axis in RAW_AXIS_COUNT:
 		baseline[axis] = InputProfile.raw_axis(axis)
 		minima[axis] = baseline[axis]
 		maxima[axis] = baseline[axis]
+		positive_motion[axis] = 0.0
 	for button in buttons: button.disabled = true
-	hint.text = "识别【%s】：请推满两端并返回中位；油门请最低→最高→最低。" % LABELS[index]
+	hint.text = "识别【%s】：前 2 秒%s，后 2 秒推到反方向。" % [LABELS[index], POSITIVE_DIRECTIONS[index]]
 func _finish_sample() -> void:
 	sampling = false
 	var best_axis := 0
@@ -498,12 +504,12 @@ func _finish_sample() -> void:
 		hint.text = "行程不足，请重新识别并推满。"
 		return
 	var center: float = InputProfile.raw_axis(best_axis)
-	var invert: bool = bool(InputProfile.mappings[String(CONTROLS[current])].invert)
+	var invert: bool = positive_motion[best_axis] < 0.0
 	if CONTROLS[current] == &"throttle":
 		center = (minima[best_axis] + maxima[best_axis]) * 0.5
-		invert = baseline[best_axis] > center
 	InputProfile.set_mapping(CONTROLS[current], best_axis, minima[best_axis], center, maxima[best_axis], invert)
-	hint.text = "完成：%s = AXIS-%d，检测行程 %.0f%%。" % [LABELS[current], best_axis, best_range * 50.0]
+	hint.text = "完成：%s = AXIS-%d，方向%s，行程 %.0f%%。" % [LABELS[current], best_axis + 1, "已反向" if invert else "正常", best_range * 50.0]
+	if not full_calibration_queue.is_empty(): call_deferred("_start_next_full_channel")
 func _invert_changed(enabled: bool, index: int) -> void:
 	InputProfile.mappings[String(CONTROLS[index])].invert = enabled
 	InputProfile.save_profile()

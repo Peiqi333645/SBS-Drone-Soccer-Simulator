@@ -362,45 +362,98 @@ func _rate_spin(parent: HBoxContainer, axis_name: String, key: String, minimum: 
 	parent.add_child(spin)
 
 func _basic_page() -> VBoxContainer:
-	var page := _page("基础")
-	var body := _content(page)
-	var help := Label.new()
-	help.text = "镜头与跟随视角"
-	var camera_row := HBoxContainer.new()
-	body.add_child(camera_row)
-	var camera_label := Label.new()
-	camera_label.text = "相机模式"
-	camera_label.custom_minimum_size.x = 190
-	camera_row.add_child(camera_label)
-	var camera_choice := OptionButton.new()
-	for camera_name in ["Chase", "FPV", "LOS"]: camera_choice.add_item(camera_name)
-	camera_choice.select(["Chase", "FPV", "LOS"].find(InputProfile.camera_mode))
-	camera_choice.item_selected.connect(_camera_mode_changed.bind(camera_choice))
-	camera_row.add_child(camera_choice)
-	var flight_row := HBoxContainer.new()
-	body.add_child(flight_row)
-	var flight_label := Label.new()
-	flight_label.text = "飞行模式"
-	flight_label.custom_minimum_size.x = 190
-	flight_row.add_child(flight_label)
+	var page := _page("机体基础")
+	var root := _content(page)
+	var title := Label.new()
+	title.text = "机体设置  ·  基础"
+	title.add_theme_font_size_override("font_size", 27)
+	root.add_child(title)
+	var flight_header := Label.new()
+	flight_header.text = "飞控"
+	flight_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	flight_header.add_theme_font_size_override("font_size", 22)
+	root.add_child(flight_header)
+	var rate_top := HBoxContainer.new()
+	root.add_child(rate_top)
+	var rate_label := Label.new()
+	rate_label.text = "RATE 类型"
+	rate_label.custom_minimum_size.x = 125
+	rate_top.add_child(rate_label)
+	var type_choice := OptionButton.new()
+	var rate_names := ["Actual", "Betaflight", "Raceflight", "KISS"]
+	for rate_name in rate_names: type_choice.add_item(rate_name)
+	type_choice.select(maxi(0, rate_names.find(InputProfile.rate_type)))
+	type_choice.item_selected.connect(_rate_type_changed.bind(type_choice))
+	rate_top.add_child(type_choice)
 	var flight_choice := OptionButton.new()
 	for mode_name in ["Acro", "Angle", "Altitude"]: flight_choice.add_item(mode_name)
-	flight_choice.select(["Acro", "Angle", "Altitude"].find(InputProfile.flight_mode))
+	flight_choice.select(maxi(0, ["Acro", "Angle", "Altitude"].find(InputProfile.flight_mode)))
 	flight_choice.item_selected.connect(_flight_mode_changed.bind(flight_choice))
-	flight_row.add_child(flight_choice)
-	help.add_theme_font_size_override("font_size", 22)
-	body.add_child(help)
-	_add_profile_slider(body, "FPV 镜头仰角", "camera", "angle", -10, 55, float(InputProfile.camera.angle), "°")
-	_add_profile_slider(body, "FPV 视野 FOV", "camera", "fov", 70, 150, float(InputProfile.camera.fov), "°")
-	_add_profile_slider(body, "跟随距离", "camera", "follow_distance", 4, 18, float(InputProfile.camera.follow_distance), " m")
-	_add_profile_slider(body, "跟随高度", "camera", "follow_height", 1.5, 10, float(InputProfile.camera.follow_height), " m")
-	var component_title := Label.new()
-	component_title.text = "机体组件"
-	component_title.add_theme_font_size_override("font_size", 22)
-	body.add_child(component_title)
-	_add_component_toggle(body, "导航灯 / LED", "led")
-	_add_component_toggle(body, "独立桨叶保护圈", "prop_guards")
+	rate_top.add_child(flight_choice)
+	var rate_split := HBoxContainer.new()
+	rate_split.add_theme_constant_override("separation", 18)
+	root.add_child(rate_split)
+	var table := VBoxContainer.new()
+	table.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rate_split.add_child(table)
+	var heading := Label.new()
+	heading.text = "轴       Center 灵敏度     Max Rate     Expo      FF 前馈"
+	heading.add_theme_color_override("font_color", Color("dddddd"))
+	table.add_child(heading)
+	for axis_name in ["roll", "pitch", "yaw"]: _add_actual_row(table, axis_name)
+	curve = preload("res://demo/scripts/rate_curve.gd").new()
+	curve.custom_minimum_size = Vector2(430, 245)
+	rate_split.add_child(curve)
+	var tune_row := HBoxContainer.new()
+	root.add_child(tune_row)
+	_add_compact_setting(tune_row, "自稳灵敏度", "level", "sensitivity", 10.0, 100.0, float(InputProfile.level.sensitivity))
+	_add_compact_setting(tune_row, "角度限制", "level", "angle_limit", 15.0, 85.0, float(InputProfile.level.angle_limit))
+	_add_compact_setting(tune_row, "电机怠速 %", "general", "motor_idle", 0.02, 0.12, InputProfile.motor_idle)
+	var camera_header := Label.new()
+	camera_header.text = "摄像头"
+	camera_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	camera_header.add_theme_font_size_override("font_size", 22)
+	root.add_child(camera_header)
+	var camera_grid := GridContainer.new()
+	camera_grid.columns = 2
+	root.add_child(camera_grid)
+	_add_profile_slider(camera_grid, "镜头仰角", "camera", "angle", -10, 55, float(InputProfile.camera.angle), "°")
+	_add_profile_slider(camera_grid, "视野 FOV", "camera", "fov", 70, 150, float(InputProfile.camera.fov), "°")
+	_add_profile_slider(camera_grid, "跟随距离", "camera", "follow_distance", 4, 18, float(InputProfile.camera.follow_distance), " m")
+	_add_profile_slider(camera_grid, "跟随高度", "camera", "follow_height", 1.5, 10, float(InputProfile.camera.follow_height), " m")
+	var component_header := Label.new()
+	component_header.text = "组件"
+	component_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	component_header.add_theme_font_size_override("font_size", 22)
+	root.add_child(component_header)
+	var component_row := HBoxContainer.new()
+	root.add_child(component_row)
+	_add_component_toggle(component_row, "LED", "led")
+	_add_component_toggle(component_row, "独立桨叶保护圈", "prop_guards")
 	return page
+
+func _add_compact_setting(parent: HBoxContainer, caption: String, group: String, key: String, minimum: float, maximum: float, value: float) -> void:
+	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(box)
+	var label := Label.new()
+	label.text = caption
+	box.add_child(label)
+	var spin := SpinBox.new()
+	spin.min_value = minimum
+	spin.max_value = maximum
+	spin.step = 0.01
+	spin.value = value
+	spin.value_changed.connect(_compact_changed.bind(group, key))
+	box.add_child(spin)
+
+func _compact_changed(value: float, group: String, key: String) -> void:
+	if group == "level":
+		InputProfile.level[key] = value
+		InputProfile.save_profile()
+		InputProfile.profile_changed.emit()
+	else:
+		InputProfile.set_general_value(key, value)
 
 func _physics_page() -> VBoxContainer:
 	var page := _page("物理")

@@ -23,6 +23,7 @@ var _device_label: Label
 var _flight_label: Label
 var _toast: Label
 var _pause_panel: PanelContainer
+var _stick_monitor: Control
 
 
 func _ready() -> void:
@@ -200,6 +201,12 @@ func _build_hud() -> void:
 	_toast.visible = false
 	layer.add_child(_toast)
 	_build_pause_menu(layer)
+	_stick_monitor = preload("res://demo/scripts/controller_monitor.gd").new()
+	_stick_monitor.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_stick_monitor.position = Vector2(-190, -165)
+	_stick_monitor.size = Vector2(380, 145)
+	_stick_monitor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(_stick_monitor)
 
 
 func _panel_style(color: Color, border: Color, radius: int) -> StyleBoxFlat:

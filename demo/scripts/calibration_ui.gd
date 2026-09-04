@@ -2,7 +2,7 @@ extends CanvasLayer
 const CONTROLS := [&"roll", &"pitch", &"yaw", &"throttle"]
 const LABELS := ["ROLL 横滚", "PITCH 俯仰", "YAW 偏航", "THROTTLE 油门"]
 const POSITIVE_DIRECTIONS := ["向右", "向后拉（机头抬起）", "向右", "推到最高"]
-const SAMPLE_SECONDS := 4.0
+const SAMPLE_SECONDS := 3.0
 const RAW_AXIS_COUNT := 16
 @export var game_path: NodePath
 var game: Node
@@ -44,14 +44,15 @@ func _process(delta: float) -> void:
 	if sample_time >= SAMPLE_SECONDS: _finish_sample()
 
 func _build_ui() -> void:
-	var shade := ColorRect.new()
+	var shade := preload("res://demo/scripts/hex_background.gd").new()
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	shade.color = Color(0.01, 0.018, 0.028, 0.98)
 	add_child(shade)
 	var panel := PanelContainer.new()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.position = Vector2(-570, -390)
-	panel.size = Vector2(1500, 860)
+	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	panel.offset_left = 42
+	panel.offset_top = 34
+	panel.offset_right = -42
+	panel.offset_bottom = -34
 	panel.theme = _reference_theme()
 	shade.add_child(panel)
 	var outer := VBoxContainer.new()
@@ -119,7 +120,7 @@ func _controller_page() -> VBoxContainer:
 	device.item_selected.connect(_select_device)
 	left.add_child(device)
 	hint = Label.new()
-	hint.text = "识别时：前 2 秒推向标注正方向，后 2 秒推向反方向。"
+	hint.text = "识别时：先推向标注正方向，再推到反方向，最后回中。"
 	hint.custom_minimum_size.y = 38
 	left.add_child(hint)
 	for i in CONTROLS.size(): _add_channel(left, i)
@@ -474,7 +475,7 @@ func _physics_page() -> VBoxContainer:
 	_add_profile_slider(body, "电机最大输出", "output", "motor_output_limit", 0.2, 0.8, InputProfile.motor_output_limit, "")
 	return page
 
-func _add_profile_slider(parent: VBoxContainer, caption: String, group: String, key: String, minimum: float, maximum: float, value: float, suffix: String) -> void:
+func _add_profile_slider(parent: Control, caption: String, group: String, key: String, minimum: float, maximum: float, value: float, suffix: String) -> void:
 	var row := HBoxContainer.new()
 	parent.add_child(row)
 	var label := Label.new()
@@ -522,7 +523,7 @@ func _update_live() -> void:
 	for i in CONTROLS.size():
 		var map: Dictionary = InputProfile.mappings[String(CONTROLS[i])]
 		bars[i].value = InputProfile.value(CONTROLS[i]) * 100.0
-		values[i].text = "AXIS-%d  %+.0f" % [int(map.axis), bars[i].value]
+		values[i].text = "AXIS-%d  %+.0f" % [int(map.axis) + 1, bars[i].value]
 	var grid := get_tree().current_scene.find_child("RawGrid", true, false) as GridContainer
 	for axis in RAW_AXIS_COUNT:
 		var label := grid.get_node("Axis%d" % axis) as Label
@@ -544,7 +545,7 @@ func _start_sample(index: int) -> void:
 		maxima[axis] = baseline[axis]
 		positive_motion[axis] = 0.0
 	for button in buttons: button.disabled = true
-	hint.text = "识别【%s】：前 2 秒%s，后 2 秒推到反方向。" % [LABELS[index], POSITIVE_DIRECTIONS[index]]
+	hint.text = "识别【%s】：先%s，再推到反方向，最后回中。" % [LABELS[index], POSITIVE_DIRECTIONS[index]]
 func _finish_sample() -> void:
 	sampling = false
 	var best_axis := 0
@@ -560,6 +561,10 @@ func _finish_sample() -> void:
 	var invert: bool = positive_motion[best_axis] < 0.0
 	if CONTROLS[current] == &"throttle":
 		center = (minima[best_axis] + maxima[best_axis]) * 0.5
+	else:
+		# Reject a bad final sample instead of creating asymmetric, drifting sticks.
+		var midpoint := (minima[best_axis] + maxima[best_axis]) * 0.5
+		if absf(center - midpoint) > best_range * 0.20: center = midpoint
 	InputProfile.set_mapping(CONTROLS[current], best_axis, minima[best_axis], center, maxima[best_axis], invert)
 	hint.text = "完成：%s = AXIS-%d，方向%s，行程 %.0f%%。" % [LABELS[current], best_axis + 1, "已反向" if invert else "正常", best_range * 50.0]
 	if not full_calibration_queue.is_empty(): call_deferred("_start_next_full_channel")
@@ -641,7 +646,7 @@ func _reset_defaults() -> void:
 	game.set_camera_mode(InputProfile.camera_mode)
 	game.set_status("已恢复默认设置；重新打开设置可查看全部默认值")
 
-func _add_component_toggle(parent: VBoxContainer, caption: String, key: String) -> void:
+func _add_component_toggle(parent: Control, caption: String, key: String) -> void:
 	var toggle := CheckButton.new()
 	toggle.text = caption
 	toggle.button_pressed = bool(InputProfile.components.get(key, false))
@@ -656,13 +661,13 @@ func _component_changed(enabled: bool, key: String) -> void:
 func _reference_theme() -> Theme:
 	var theme := Theme.new()
 	var panel_style := StyleBoxFlat.new()
-	panel_style.bg_color = Color("242424")
-	panel_style.border_color = Color("515151")
+	panel_style.bg_color = Color(0.085, 0.085, 0.095, 0.96)
+	panel_style.border_color = Color("565661")
 	panel_style.set_border_width_all(3)
 	theme.set_stylebox("panel", "PanelContainer", panel_style)
 	var button_style := StyleBoxFlat.new()
-	button_style.bg_color = Color("514e6d")
-	button_style.border_color = Color("77749c")
+	button_style.bg_color = Color("565273")
+	button_style.border_color = Color("8b87b0")
 	button_style.set_border_width_all(2)
 	theme.set_stylebox("normal", "Button", button_style)
 	var hover_style := button_style.duplicate() as StyleBoxFlat

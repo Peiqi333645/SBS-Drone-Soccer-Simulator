@@ -18,6 +18,7 @@ func _ready() -> void:
 	_build_goal(Vector3(0, 2.8, FIELD_L * 0.5 - 2.0), 1, yellow)
 	_build_launch_pad()
 	_build_markers()
+	_build_stadium()
 	_build_lights()
 
 
@@ -147,6 +148,35 @@ func _build_markers() -> void:
 	for x in [-25.0, 25.0]:
 		for z in [-34.0, 0.0, 34.0]:
 			_box(self, "Landscape_%s_%s" % [x, z], Vector3(x, 0.5, z), Vector3(5.0, 1.0, 7.0), Color("45634a"), false)
+
+
+func _build_stadium() -> void:
+	# Layered, open-roof arena inspired by the supplied FPV reference. The low
+	# poly construction keeps the scene fast enough for a stable 400 Hz sim.
+	var concrete := Color("3b383b")
+	var fascia := Color("17151b")
+	var seat_colors := [Color("ff385f"), Color("f08a25"), Color("743fc4"), Color("20c98a")]
+	for side: float in [-1.0, 1.0]:
+		for tier in 3:
+			var x: float = side * (18.0 + tier * 3.2)
+			var height: float = 2.0 + tier * 3.1
+			_box(self, "Stand_%s_%d" % [side, tier], Vector3(x, height * 0.5, 0), Vector3(5.8, height, 68.0), concrete, false)
+			_box(self, "Fascia_%s_%d" % [side, tier], Vector3(side * (15.0 + tier * 3.2), height, 0), Vector3(0.35, 0.85, 68.0), fascia, false)
+			for z_index in 13:
+				var z := -30.0 + z_index * 5.0
+				var color: Color = seat_colors[(z_index + tier) % seat_colors.size()]
+				_box(self, "Seats_%s_%d_%d" % [side, tier, z_index], Vector3(side * (14.7 + tier * 3.2), height + 0.8, z), Vector3(0.45, 1.1, 3.8), color, false)
+	# End stands leave broad tunnels so the arena reads as open rather than caged.
+	for end: float in [-1.0, 1.0]:
+		for x_index in 8:
+			var x: float = -14.0 + x_index * 4.0
+			if absf(x) < 4.1: continue
+			var color: Color = seat_colors[(x_index + (0 if end < 0 else 2)) % seat_colors.size()]
+			_box(self, "EndSeats_%s_%d" % [end, x_index], Vector3(x, 4.2, end * 36.0), Vector3(3.2, 6.0, 4.0), color, false)
+	# Central scoreboard and roof trusses give scale and high-altitude cues.
+	_box(self, "Scoreboard", Vector3(0, 12.0, -35.0), Vector3(14.0, 5.0, 0.7), Color("111318"), false)
+	for end: float in [-1.0, 1.0]:
+		_box(self, "RoofBeam_%s" % end, Vector3(0, 17.0, end * 34.0), Vector3(50.0, 0.45, 0.45), Color("4a4549"), false)
 
 
 func _on_goal(team: int) -> void:

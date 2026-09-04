@@ -1,4 +1,4 @@
-[gd_scene load_steps=25 format=3]
+[gd_scene load_steps=24 format=3]
 
 [ext_resource type="Script" path="res://demo/scripts/arena_builder.gd" id="1_arena"]
 [ext_resource type="Script" path="res://demo/scripts/soccer_controller.gd" id="2_ctrl"]
@@ -39,9 +39,6 @@ tonemap_mode = 2
 [sub_resource type="BoxShape3D" id="DroneCol"]
 size = Vector3(0.78, 0.20, 0.78)
 
-[sub_resource type="SphereMesh" id="CoreMesh"]
-radius = 0.2
-height = 0.34
 
 [sub_resource type="StandardMaterial3D" id="CoreMat"]
 albedo_color = Color(0.035, 0.05, 0.065, 1)
@@ -278,12 +275,18 @@ target_path = NodePath("../DroneBody")
 offset = Vector3(0, 4.2, 8.5)
 look_height = 0.3
 
+[node name="ObserverCamera" type="Camera3D" parent="."]
+position = Vector3(14, 8, 18)
+rotation_degrees = Vector3(-18, 38, 0)
+fov = 70.0
+
 [node name="Game" type="Node" parent="."]
 script = ExtResource("4_game")
 drone_path = NodePath("../DroneBody")
 controller_path = NodePath("../Controller")
 chase_camera_path = NodePath("../ChaseCamera")
 fpv_camera_path = NodePath("../DroneBody/FPVCamera")
+observer_camera_path = NodePath("../ObserverCamera")
 arena_path = NodePath("../Arena")
 
 [node name="Controller" type="Node" parent="."]

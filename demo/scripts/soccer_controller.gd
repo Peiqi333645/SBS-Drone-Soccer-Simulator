@@ -116,6 +116,13 @@ func apply_profile() -> void:
 	drone.max_voltage = float(InputProfile.physics.voltage)
 	Engine.time_scale = InputProfile.slow_motion
 	game.set_camera_mode(InputProfile.camera_mode)
+	var quad := get_node_or_null(drone_path)
+	if quad:
+		for child in quad.get_children():
+			if String(child.name).begins_with("FrontLight") or String(child.name) == "RearLight":
+				child.visible = bool(InputProfile.components.get("led", true))
+			elif String(child.name).begins_with("PropGuard"):
+				child.visible = bool(InputProfile.components.get("prop_guards", false))
 	var fpv := game.get_node_or_null("../DroneBody/FPVCamera") as Camera3D
 	var chase := game.get_node_or_null("../ChaseCamera") as Camera3D
 	if fpv:

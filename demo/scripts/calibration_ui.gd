@@ -29,7 +29,7 @@ func _process(delta: float) -> void:
 	if not sampling: return
 	sample_time += delta
 	for axis in 8:
-		var raw := InputProfile.raw_axis(axis)
+		var raw: float = InputProfile.raw_axis(axis)
 		minima[axis] = minf(minima[axis], raw)
 		maxima[axis] = maxf(maxima[axis], raw)
 	progress.value = sample_time
@@ -85,7 +85,7 @@ func _page(name_value: String) -> VBoxContainer:
 	return page
 
 func _content(page: VBoxContainer) -> VBoxContainer:
-	return page.get_child(0).get_child(0)
+	return page.get_child(0).get_child(0) as VBoxContainer
 
 func _controller_page() -> VBoxContainer:
 	var page := _page("遥控器")
@@ -310,14 +310,14 @@ func _finish_sample() -> void:
 	var best_axis := 0
 	var best_range := 0.0
 	for axis in 8:
-		var travel := maxima[axis] - minima[axis]
+		var travel: float = maxima[axis] - minima[axis]
 		if travel > best_range: best_range = travel; best_axis = axis
 	for button in buttons: button.disabled = false
 	if best_range < 0.65:
 		hint.text = "行程不足，请重新识别并推满。"
 		return
-	var center := InputProfile.raw_axis(best_axis)
-	var invert := bool(InputProfile.mappings[String(CONTROLS[current])].invert)
+	var center: float = InputProfile.raw_axis(best_axis)
+	var invert: bool = bool(InputProfile.mappings[String(CONTROLS[current])].invert)
 	if CONTROLS[current] == &"throttle":
 		center = (minima[best_axis] + maxima[best_axis]) * 0.5
 		invert = baseline[best_axis] > center

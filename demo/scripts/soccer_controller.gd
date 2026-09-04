@@ -113,6 +113,7 @@ func apply_profile() -> void:
 	drone.motor_kv = float(InputProfile.physics.motor_kv)
 	drone.max_voltage = float(InputProfile.physics.voltage)
 	Engine.time_scale = InputProfile.slow_motion
+	game.set_camera_mode(InputProfile.camera_mode)
 	var fpv := game.get_node_or_null("../DroneBody/FPVCamera") as Camera3D
 	var chase := game.get_node_or_null("../ChaseCamera") as Camera3D
 	if fpv:

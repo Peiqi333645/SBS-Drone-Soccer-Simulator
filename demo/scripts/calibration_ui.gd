@@ -369,6 +369,12 @@ func _basic_page() -> VBoxContainer:
 	_add_profile_slider(body, "FPV 视野 FOV", "camera", "fov", 70, 150, float(InputProfile.camera.fov), "°")
 	_add_profile_slider(body, "跟随距离", "camera", "follow_distance", 4, 18, float(InputProfile.camera.follow_distance), " m")
 	_add_profile_slider(body, "跟随高度", "camera", "follow_height", 1.5, 10, float(InputProfile.camera.follow_height), " m")
+	var component_title := Label.new()
+	component_title.text = "机体组件"
+	component_title.add_theme_font_size_override("font_size", 22)
+	body.add_child(component_title)
+	_add_component_toggle(body, "导航灯 / LED", "led")
+	_add_component_toggle(body, "独立桨叶保护圈", "prop_guards")
 	return page
 
 func _physics_page() -> VBoxContainer:
@@ -555,3 +561,15 @@ func _reset_defaults() -> void:
 	InputProfile.reset_defaults()
 	game.set_camera_mode(InputProfile.camera_mode)
 	game.set_status("已恢复默认设置；重新打开设置可查看全部默认值")
+
+func _add_component_toggle(parent: VBoxContainer, caption: String, key: String) -> void:
+	var toggle := CheckButton.new()
+	toggle.text = caption
+	toggle.button_pressed = bool(InputProfile.components.get(key, false))
+	toggle.toggled.connect(_component_changed.bind(key))
+	parent.add_child(toggle)
+
+func _component_changed(enabled: bool, key: String) -> void:
+	InputProfile.components[key] = enabled
+	InputProfile.save_profile()
+	InputProfile.profile_changed.emit()

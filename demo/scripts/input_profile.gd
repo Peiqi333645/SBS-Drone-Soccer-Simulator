@@ -2,7 +2,7 @@ extends Node
 
 signal profile_changed
 const SAVE_PATH := "user://sbs_controller_profile.json"
-const PROFILE_VERSION := 7
+const PROFILE_VERSION := 8
 const AXES := [&"throttle", &"yaw", &"pitch", &"roll"]
 var device_id := 0
 var deadzone := 0.04
@@ -13,7 +13,7 @@ var bf_super_rate := 0.70
 var bf_rate_expo := 0.20
 var bf_yaw_rate := 0.85
 var bf_yaw_super_rate := 0.65
-var motor_output_limit := 0.68
+var motor_output_limit := 0.62
 var rate_type := "Betaflight"
 var flight_mode := "Acro"
 var camera_mode := "Chase"
@@ -40,9 +40,9 @@ var actual_rates := {
 }
 var level := {"sensitivity": 50.0, "angle_limit": 50.0}
 var components := {"led": true, "prop_guards": false}
-var physics := {"mass": 0.42, "gravity": 1.12, "thrust": 1.0, "drag_low": 0.035, "drag_high": 0.10, "turbulence": 0.0, "motor_kv": 1450.0, "voltage": 16.8}
+var physics := {"mass": 0.42, "gravity": 1.15, "thrust": 1.0, "drag_low": 0.032, "drag_high": 0.085, "turbulence": 0.0, "motor_kv": 2300.0, "voltage": 16.8}
 var camera := {"angle": 25.0, "fov": 120.0, "follow_distance": 5.8, "follow_height": 2.2, "los_distance": 7.5, "los_height": 2.8, "motion_blur": 0.15, "lens_distortion": 0.08}
-var graphics := {"quality": 2, "render_scale": 1.0, "vsync": true, "shadows": true, "glow": true, "ssao": true, "anti_aliasing": 2}
+var graphics := {"quality": 1, "render_scale": 0.85, "vsync": true, "shadows": true, "glow": false, "ssao": false, "anti_aliasing": 1}
 var osd := {"visible": true, "scale": 1.0, "sticks": true, "speed": true, "altitude": true, "flight_mode": true, "camera_mode": true, "camera_angle": true, "reticle": true, "fps": true}
 var colors := {"body":"7d5cff", "accent":"ff2d7d", "prop":"f4f4ff", "led":"31d8ff"}
 var mappings := {
@@ -187,6 +187,12 @@ func load_profile() -> void:
 				"flight_mode":{"type":"none","index":-1}}
 			physics.merge({"gravity":1.12,"drag_low":0.035,"drag_high":0.10,"motor_kv":1450.0}, true)
 			motor_output_limit = 0.68
+		if profile_version < 8:
+			# Keep a fast motor/ESC response and cap only maximum power. Reducing KV
+			# made the whole throttle range sluggish instead of merely limiting it.
+			physics.merge({"gravity":1.15,"drag_low":0.032,"drag_high":0.085,"motor_kv":2300.0}, true)
+			motor_output_limit = 0.62
+			graphics.merge({"quality":1,"render_scale":0.85,"shadows":true,"glow":false,"ssao":false,"anti_aliasing":1}, true)
 		save_profile()
 
 func set_rate_value(axis_name: String, key: String, value: float) -> void:
@@ -214,7 +220,7 @@ func reset_defaults() -> void:
 	flight_mode = "Acro"
 	camera_mode = "Chase"
 	slow_motion = 1.0
-	motor_output_limit = 0.68
+	motor_output_limit = 0.62
 	motor_idle = 0.055
 	axis_rates = {"roll":{"rc":1.0,"super":0.70,"expo":0.20},"pitch":{"rc":1.0,"super":0.70,"expo":0.20},"yaw":{"rc":0.85,"super":0.65,"expo":0.10}}
 	actual_rates = {"roll":{"center":220.0,"max":850.0,"expo":0.0,"ff":0.0},"pitch":{"center":220.0,"max":850.0,"expo":0.0,"ff":0.0},"yaw":{"center":220.0,"max":750.0,"expo":0.0,"ff":0.0}}
@@ -224,9 +230,9 @@ func reset_defaults() -> void:
 	throttle_expo = 0.15
 	mappings = {"roll":{"axis":0,"min":-1.0,"center":0.0,"max":1.0,"invert":false,"deadzone":0.04},"pitch":{"axis":1,"min":-1.0,"center":0.0,"max":1.0,"invert":false,"deadzone":0.04},"throttle":{"axis":2,"min":-1.0,"center":0.0,"max":1.0,"invert":false,"deadzone":0.02},"yaw":{"axis":3,"min":-1.0,"center":0.0,"max":1.0,"invert":false,"deadzone":0.04}}
 	aux_buttons = {"arm":{"type":"none","index":-1},"disarm":{"type":"none","index":-1},"reset":{"type":"none","index":-1},"camera":{"type":"none","index":-1},"flight_mode":{"type":"none","index":-1}}
-	physics = {"mass":0.42,"gravity":1.12,"thrust":1.0,"drag_low":0.035,"drag_high":0.10,"turbulence":0.0,"motor_kv":1450.0,"voltage":16.8}
+	physics = {"mass":0.42,"gravity":1.15,"thrust":1.0,"drag_low":0.032,"drag_high":0.085,"turbulence":0.0,"motor_kv":2300.0,"voltage":16.8}
 	camera = {"angle":25.0,"fov":120.0,"follow_distance":5.8,"follow_height":2.2,"los_distance":7.5,"los_height":2.8,"motion_blur":0.15,"lens_distortion":0.08}
-	graphics = {"quality":2,"render_scale":1.0,"vsync":true,"shadows":true,"glow":true,"ssao":true,"anti_aliasing":2}
+	graphics = {"quality":1,"render_scale":0.85,"vsync":true,"shadows":true,"glow":false,"ssao":false,"anti_aliasing":1}
 	osd = {"visible":true,"scale":1.0,"sticks":true,"speed":true,"altitude":true,"flight_mode":true,"camera_mode":true,"camera_angle":true,"reticle":true,"fps":true}
 	colors = {"body":"7d5cff","accent":"ff2d7d","prop":"f4f4ff","led":"31d8ff"}
 	save_profile()

@@ -4,6 +4,7 @@ const ARENA_SCENE := "res://demo/soccer_arena.tscn"
 
 var _device_label: Label
 var _help_panel: PanelContainer
+var _airframe_choice: OptionButton
 
 
 func _ready() -> void:
@@ -97,6 +98,19 @@ func _build_menu() -> void:
 	_device_label.add_theme_color_override("font_color", Color("84dbe7"))
 	_device_label.custom_minimum_size.y = 52
 	column.add_child(_device_label)
+	var airframe_label := Label.new()
+	airframe_label.text = "无人机类型"
+	airframe_label.add_theme_color_override("font_color", Color("a8c5cd"))
+	column.add_child(airframe_label)
+	_airframe_choice = OptionButton.new()
+	_airframe_choice.custom_minimum_size.y = 52
+	var airframe_ids := ["1inch", "2_5inch", "3inch", "5inch"]
+	for id in airframe_ids:
+		_airframe_choice.add_item(String(InputProfile.AIRFRAMES[id].name))
+		_airframe_choice.set_item_metadata(_airframe_choice.item_count - 1, id)
+		if id == InputProfile.airframe_id: _airframe_choice.select(_airframe_choice.item_count - 1)
+	_airframe_choice.item_selected.connect(_airframe_changed)
+	column.add_child(_airframe_choice)
 	column.add_child(_make_button("开始训练", _start_training, true))
 	column.add_child(_make_button("控制器识别与校准", _start_calibration))
 	column.add_child(_make_button("设置 · 画质 / OSD / 飞控", _start_settings))
@@ -155,6 +169,11 @@ func _build_help() -> void:
 
 func _start_training() -> void:
 	get_tree().change_scene_to_file(ARENA_SCENE)
+
+
+func _airframe_changed(index: int) -> void:
+	var id := String(_airframe_choice.get_item_metadata(index))
+	InputProfile.set_airframe(id)
 
 
 func _start_calibration() -> void:

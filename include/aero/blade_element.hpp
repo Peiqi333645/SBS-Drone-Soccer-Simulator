@@ -3,6 +3,7 @@
 #include "aero/atmosphere.hpp"
 #include <array>
 #include <span>
+#include <vector>
 
 namespace dronesim {
 

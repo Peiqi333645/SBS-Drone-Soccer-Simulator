@@ -18,7 +18,7 @@ InputProfile="*res://demo/scripts/input_profile.gd"
 
 [physics]
 
-common/physics_ticks_per_second=240
+common/physics_ticks_per_second=400
 common/enable_object_picking=false
 
 [rendering]

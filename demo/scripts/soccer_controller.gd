@@ -12,13 +12,17 @@ var yaw_filtered := 0.0
 var altitude_target := 1.5
 var last_flight_mode := ""
 var aux_previous := {}
+var base_child_transforms := {}
 func _ready() -> void:
 	drone = get_node(drone_path) as DroneBody
 	game = get_node(game_path)
+	for child in drone.get_children():
+		if child is Node3D:
+			base_child_transforms[child.get_path()] = (child as Node3D).transform
 	InputProfile.profile_changed.connect(apply_profile)
 	apply_profile()
 	Engine.time_scale = InputProfile.slow_motion
-func _process(delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if Input.is_action_just_pressed("drone_disarm"): disarm()
 	if Input.is_action_just_pressed("soccer_reset"): game.reset_drone()
 	if Input.is_action_just_pressed("soccer_camera"): game.toggle_camera()
@@ -87,33 +91,8 @@ func _process(delta: float) -> void:
 		game.set_status("检测到异常刚体状态，已安全复位")
 		game.reset_drone()
 func _command_rate(axis_name: String, stick: float) -> float:
-	if InputProfile.rate_type == "Actual":
-		var values: Dictionary = InputProfile.actual_rates[axis_name]
-		var center: float = float(values.center)
-		var maximum: float = float(values.max)
-		var expo_value: float = float(values.expo)
-		var shaped: float = stick * (1.0 - expo_value) + stick * stick * stick * expo_value
-		var rate_deg: float = center * shaped + (maximum - center) * pow(absf(shaped), 3.0) * signf(shaped)
-		return deg_to_rad(rate_deg)
-	var values: Dictionary = InputProfile.axis_rates[axis_name]
-	var rc: float = float(values.rc)
-	var super_value: float = float(values.super)
-	var expo_value: float = float(values.expo)
-	if InputProfile.rate_type == "Raceflight":
-		super_value = clampf(super_value * 1.08, 0.0, 0.95)
-	elif InputProfile.rate_type == "KISS":
-		rc *= 0.92
-		expo_value = clampf(expo_value + 0.08, 0.0, 1.0)
-	return _bf_rate(stick, rc, super_value, expo_value)
-
-func _bf_rate(stick: float, rc_rate: float, super_rate: float, rate_expo: float) -> float:
-	var x: float = clampf(stick, -1.0, 1.0)
-	var shaped: float = x * (1.0 - rate_expo) + x * x * x * rate_expo
-	var rc: float = rc_rate
-	if rc > 2.0: rc += 14.54 * (rc - 2.0)
-	var degrees_per_second: float = 200.0 * rc * shaped
-	degrees_per_second /= maxf(0.05, 1.0 - absf(shaped) * super_rate)
-	return deg_to_rad(degrees_per_second)
+	var values: Dictionary = InputProfile.actual_rates[axis_name] if InputProfile.rate_type == "Actual" else InputProfile.axis_rates[axis_name]
+	return deg_to_rad(RateMath.degrees_per_second(InputProfile.rate_type, stick, values))
 func _throttle_curve(value: float) -> float:
 	var t: float = clampf(value, 0.0, 1.0)
 	var mid: float = clampf(InputProfile.throttle_mid, 0.1, 0.9)
@@ -133,6 +112,12 @@ func apply_profile() -> void:
 	drone.turbulence_intensity = float(InputProfile.physics.turbulence)
 	drone.motor_kv = float(InputProfile.physics.motor_kv)
 	drone.max_voltage = float(InputProfile.physics.voltage)
+	drone.rotor_radius = float(InputProfile.physics.prop_radius)
+	drone.motor_arm_length = float(InputProfile.physics.motor_arm)
+	drone.motor_output_limit = InputProfile.motor_output_limit
+	var inertia_values: Array = InputProfile.physics.inertia
+	drone.inertia = Vector3(float(inertia_values[0]), float(inertia_values[1]), float(inertia_values[2]))
+	_apply_airframe_visuals()
 	Engine.time_scale = InputProfile.slow_motion
 	game.set_camera_mode(InputProfile.camera_mode)
 	var quad := get_node_or_null(drone_path)
@@ -187,6 +172,24 @@ func apply_profile() -> void:
 			var led_material := mesh.material_override.duplicate() as StandardMaterial3D
 			if led_material: led_material.albedo_color = led_color; led_material.emission = led_color; mesh.material_override = led_material
 
+func _apply_airframe_visuals() -> void:
+	var scale_factor := float(InputProfile.physics.visual_scale)
+	for child in drone.get_children():
+		if not child is Node3D: continue
+		var node := child as Node3D
+		var key := node.get_path()
+		if not base_child_transforms.has(key): continue
+		var base: Transform3D = base_child_transforms[key]
+		if node is CollisionShape3D:
+			var collision := node as CollisionShape3D
+			if collision.shape is BoxShape3D:
+				var shape := collision.shape.duplicate() as BoxShape3D
+				var wheelbase := float(InputProfile.airframe().wheelbase)
+				shape.size = Vector3(wheelbase * 0.90, maxf(0.035, wheelbase * 0.22), wheelbase * 0.90)
+				collision.shape = shape
+			continue
+		node.transform = Transform3D(base.basis.scaled(Vector3.ONE * scale_factor), base.origin * scale_factor)
+
 func arm() -> void:
 	if armed or game.input_blocked: return
 	var throttle: float = (InputProfile.value(&"throttle") + 1.0) * 0.5
@@ -238,6 +241,6 @@ func _aux_pressed(action: String) -> bool:
 	return down and not previous
 
 func rate_summary() -> String:
-	var r: Dictionary = InputProfile.axis_rates["roll"]
-	var maximum := int(200.0 * float(r.rc) / maxf(0.05, 1.0 - float(r.super)))
+	var r: Dictionary = InputProfile.actual_rates["roll"] if InputProfile.rate_type == "Actual" else InputProfile.axis_rates["roll"]
+	var maximum := int(absf(RateMath.degrees_per_second(InputProfile.rate_type, 1.0, r)))
 	return "%s · %s · 横滚 %d°/s" % [InputProfile.flight_mode, InputProfile.rate_type, maximum]

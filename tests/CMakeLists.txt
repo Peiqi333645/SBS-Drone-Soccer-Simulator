@@ -1,0 +1,4 @@
+add_executable(drone_sim_core_tests core_regression.cpp)
+target_include_directories(drone_sim_core_tests PRIVATE "${CMAKE_SOURCE_DIR}/include")
+target_compile_features(drone_sim_core_tests PRIVATE cxx_std_20)
+add_test(NAME drone_sim_core_tests COMMAND drone_sim_core_tests)

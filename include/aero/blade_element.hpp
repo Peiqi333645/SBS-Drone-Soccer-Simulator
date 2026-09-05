@@ -28,7 +28,7 @@ struct RotorConfig {
     double motor_resistance{0.12}; // Ω
     double motor_inertia{1.5e-5};  // kg·m²
     double max_voltage{14.8};      // V (4S LiPo)
-    double esc_tau{0.008};         // s — modern FPV ESC response
+    double esc_tau{0.0035};        // s — modern 48 kHz FPV ESC response
 
     // Position in body frame (metres) and spin direction (+1 CCW, -1 CW from above)
     Vec3d  position{};

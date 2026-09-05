@@ -34,6 +34,12 @@ func _ready() -> void:
 	Input.joy_connection_changed.connect(_on_joy_connection_changed)
 	visible = false
 
+func _input(event: InputEvent) -> void:
+	if visible and (event is InputEventJoypadMotion or event is InputEventJoypadButton):
+		# Input singleton has already recorded the radio state, so calibration can
+		# read it while the GUI is prevented from treating it as navigation/clicks.
+		get_viewport().set_input_as_handled()
+
 func _process(delta: float) -> void:
 	if visible: _update_live()
 	if aux_sampling:
@@ -199,9 +205,18 @@ func _controller_page() -> VBoxContainer:
 	return page
 
 func _add_channel(parent: VBoxContainer, index: int) -> void:
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", _setting_card_style())
+	parent.add_child(panel)
+	var inset := MarginContainer.new()
+	inset.add_theme_constant_override("margin_left", 12)
+	inset.add_theme_constant_override("margin_right", 12)
+	inset.add_theme_constant_override("margin_top", 5)
+	inset.add_theme_constant_override("margin_bottom", 5)
+	panel.add_child(inset)
 	var card := HBoxContainer.new()
 	card.add_theme_constant_override("separation", 7)
-	parent.add_child(card)
+	inset.add_child(card)
 	var label := Label.new()
 	label.text = LABELS[index]
 	label.custom_minimum_size.x = 125
@@ -394,7 +409,7 @@ func _basic_page() -> VBoxContainer:
 	var rate_top := HBoxContainer.new()
 	root.add_child(rate_top)
 	var rate_label := Label.new()
-	rate_label.text = "RATE 类型（摇杆到角速度的响应算法）"
+	rate_label.text = "RATE 类型"
 	rate_label.custom_minimum_size.x = 125
 	rate_top.add_child(rate_label)
 	var type_choice := OptionButton.new()
@@ -483,16 +498,21 @@ func _physics_page() -> VBoxContainer:
 	help.text = "KV 决定电机响应速度，最大输出只限制动力上限，两者互不替代。推荐从 420 g / 2300 KV / 4S 开始。"
 	help.add_theme_font_size_override("font_size", 20)
 	body.add_child(help)
-	_add_profile_slider(body, "机体重量（质量与惯性感）", "physics", "mass", 0.20, 1.50, float(InputProfile.physics.mass), " kg")
-	_add_profile_slider(body, "重力（下坠加速度）", "physics", "gravity", 0.80, 1.50, float(InputProfile.physics.gravity), " x")
-	_add_profile_slider(body, "推力（四电机总动力）", "physics", "thrust", 0.50, 1.80, float(InputProfile.physics.thrust), " x")
-	_add_profile_slider(body, "低速阻力", "physics", "drag_low", 0.0, 0.20, float(InputProfile.physics.drag_low), "")
-	_add_profile_slider(body, "高速阻力", "physics", "drag_high", 0.02, 0.60, float(InputProfile.physics.drag_high), "")
-	_add_profile_slider(body, "空气乱流", "physics", "turbulence", 0.0, 2.0, float(InputProfile.physics.turbulence), "")
-	_add_profile_slider(body, "电机性能（真实 KV）", "physics", "motor_kv", 1200.0, 4200.0, float(InputProfile.physics.motor_kv), " KV")
-	_add_profile_slider(body, "电池电压", "physics", "voltage", 7.4, 25.2, float(InputProfile.physics.voltage), " V")
-	_add_profile_slider(body, "慢动作倍率", "general", "slow_motion", 0.2, 1.0, InputProfile.slow_motion, " x")
-	_add_profile_slider(body, "电机最大输出", "output", "motor_output_limit", 0.30, 1.0, InputProfile.motor_output_limit, "")
+	var physics_grid := GridContainer.new()
+	physics_grid.columns = 2
+	physics_grid.add_theme_constant_override("h_separation", 12)
+	physics_grid.add_theme_constant_override("v_separation", 10)
+	body.add_child(physics_grid)
+	_add_profile_slider(physics_grid, "机体重量", "physics", "mass", 0.20, 1.50, float(InputProfile.physics.mass), " kg")
+	_add_profile_slider(physics_grid, "重力倍率", "physics", "gravity", 0.80, 1.60, float(InputProfile.physics.gravity), " x")
+	_add_profile_slider(physics_grid, "总推力倍率", "physics", "thrust", 0.50, 1.80, float(InputProfile.physics.thrust), " x")
+	_add_profile_slider(physics_grid, "低速阻力", "physics", "drag_low", 0.0, 0.20, float(InputProfile.physics.drag_low), "")
+	_add_profile_slider(physics_grid, "高速阻力", "physics", "drag_high", 0.02, 0.60, float(InputProfile.physics.drag_high), "")
+	_add_profile_slider(physics_grid, "空气乱流", "physics", "turbulence", 0.0, 2.0, float(InputProfile.physics.turbulence), "")
+	_add_profile_slider(physics_grid, "电机 KV", "physics", "motor_kv", 1200.0, 4200.0, float(InputProfile.physics.motor_kv), " KV")
+	_add_profile_slider(physics_grid, "电池电压", "physics", "voltage", 7.4, 25.2, float(InputProfile.physics.voltage), " V")
+	_add_profile_slider(physics_grid, "慢动作倍率", "general", "slow_motion", 0.2, 1.0, InputProfile.slow_motion, " x")
+	_add_profile_slider(physics_grid, "电机最大输出", "output", "motor_output_limit", 0.30, 1.0, InputProfile.motor_output_limit, "")
 	_add_section_title(body, "预设")
 	var presets := HBoxContainer.new()
 	body.add_child(presets)
@@ -555,20 +575,19 @@ func _add_profile_slider(parent: Control, caption: String, group: String, key: S
 	label.text = caption
 	label.custom_minimum_size.x = 190
 	row.add_child(label)
-	var slider = preload("res://demo/scripts/smooth_slider.gd").new()
-	slider.min_value = minimum
-	slider.max_value = maximum
-	slider.step = 0.01
-	slider.value = value
-	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(slider)
-	var number := Label.new()
-	number.text = "%.2f%s" % [value, suffix]
-	number.custom_minimum_size.x = 100
-	number.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	number.add_theme_color_override("font_color", Color("ffd160"))
-	row.add_child(number)
-	slider.value_changed.connect(_profile_changed.bind(group, key, number, suffix))
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(spacer)
+	var input := SpinBox.new()
+	input.min_value = minimum
+	input.max_value = maximum
+	input.step = 1.0 if maximum - minimum > 100.0 else 0.01
+	input.value = value
+	input.suffix = suffix
+	input.custom_minimum_size = Vector2(190, 40)
+	input.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(input)
+	input.value_changed.connect(_profile_input_changed.bind(group, key))
 
 func _add_number_input(parent: Control, caption: String, key: String, minimum: float, maximum: float, value: float, suffix: String) -> void:
 	var card := PanelContainer.new(); card.add_theme_stylebox_override("panel", _setting_card_style()); parent.add_child(card)
@@ -588,6 +607,15 @@ func _setting_card_style() -> StyleBoxFlat:
 
 func _camera_number_changed(value: float, key: String) -> void:
 	InputProfile.set_camera_value(key, value)
+
+func _profile_input_changed(value: float, group: String, key: String) -> void:
+	if group == "physics": InputProfile.set_physics_value(key, value)
+	elif group == "level":
+		InputProfile.level[key] = value; InputProfile.save_profile(); InputProfile.profile_changed.emit()
+	elif group == "graphics" or group == "osd":
+		var settings: Dictionary = InputProfile.get(group)
+		settings[key] = value; InputProfile.set(group, settings); InputProfile.save_profile(); InputProfile.profile_changed.emit()
+	else: InputProfile.set_general_value(key, value)
 
 func open() -> void:
 	visible = true
@@ -852,6 +880,12 @@ func _reference_theme() -> Theme:
 	var pressed_style := hover_style.duplicate() as StyleBoxFlat
 	pressed_style.bg_color = Color("b88400")
 	theme.set_stylebox("pressed", "Button", pressed_style)
+	var toggle_style := button_style.duplicate() as StyleBoxFlat
+	toggle_style.bg_color = Color("1b1d21")
+	toggle_style.border_color = Color("383b40")
+	theme.set_stylebox("normal", "CheckButton", toggle_style)
+	theme.set_stylebox("hover", "CheckButton", toggle_style)
+	theme.set_stylebox("pressed", "CheckButton", toggle_style)
 	var field_style := StyleBoxFlat.new()
 	field_style.bg_color = Color("17191d")
 	field_style.border_color = Color("45484e")

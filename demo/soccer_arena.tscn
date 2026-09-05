@@ -189,6 +189,36 @@ scale = Vector3(0.62, 0.72, 0.42)
 mesh = SubResource("ShellMesh")
 material_override = SubResource("CoreMat")
 
+[node name="StackBoltFL" type="MeshInstance3D" parent="DroneBody"]
+position = Vector3(-0.11, 0.175, -0.10)
+scale = Vector3(0.22, 0.28, 0.22)
+mesh = SubResource("MotorMesh")
+material_override = SubResource("LensMat")
+
+[node name="StackBoltFR" type="MeshInstance3D" parent="DroneBody"]
+position = Vector3(0.11, 0.175, -0.10)
+scale = Vector3(0.22, 0.28, 0.22)
+mesh = SubResource("MotorMesh")
+material_override = SubResource("LensMat")
+
+[node name="StackBoltRL" type="MeshInstance3D" parent="DroneBody"]
+position = Vector3(-0.11, 0.175, 0.11)
+scale = Vector3(0.22, 0.28, 0.22)
+mesh = SubResource("MotorMesh")
+material_override = SubResource("LensMat")
+
+[node name="StackBoltRR" type="MeshInstance3D" parent="DroneBody"]
+position = Vector3(0.11, 0.175, 0.11)
+scale = Vector3(0.22, 0.28, 0.22)
+mesh = SubResource("MotorMesh")
+material_override = SubResource("LensMat")
+
+[node name="Receiver" type="MeshInstance3D" parent="DroneBody"]
+position = Vector3(0, 0.14, 0.15)
+scale = Vector3(0.36, 0.18, 0.25)
+mesh = SubResource("ShellMesh")
+material_override = SubResource("LensMat")
+
 [node name="ArmX" type="MeshInstance3D" parent="DroneBody"]
 rotation_degrees = Vector3(0, 45, 0)
 mesh = SubResource("ArmMesh")

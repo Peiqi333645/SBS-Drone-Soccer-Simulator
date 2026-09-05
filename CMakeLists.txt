@@ -34,7 +34,7 @@ option(DRONE_SIM_NATIVE  "Optimise for the build machine's CPU (NOT portable)" O
 # reproducible across machines/architectures (slower; for benchmark runs).
 option(DRONE_SIM_DETERMINISTIC "Strict FP for reproducible physics" OFF)
 
-set(GODOTCPP_GIT_TAG "godot-4.3-stable" CACHE STRING
+set(GODOTCPP_GIT_TAG "10.0.0-rc2" CACHE STRING
     "godot-cpp branch/tag to fetch (match your Godot editor version)")
 
 # --------------------------------------------------------------------------

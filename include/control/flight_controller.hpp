@@ -56,8 +56,8 @@ public:
         double att_roll_p{8.0};
         double att_pitch_p{8.0};
         // Rate loop (inner)
-        double rate_roll_p{0.19}, rate_roll_i{0.045}, rate_roll_d{0.00035};
-        double rate_pitch_p{0.19}, rate_pitch_i{0.045}, rate_pitch_d{0.00035};
+        double rate_roll_p{0.24}, rate_roll_i{0.045}, rate_roll_d{0.00018};
+        double rate_pitch_p{0.24}, rate_pitch_i{0.045}, rate_pitch_d{0.00018};
         double rate_yaw_p{0.20},  rate_yaw_i{0.1},  rate_yaw_d{0.0};
         // Output limits (rad/s²)
         double max_roll_rate{20.0};

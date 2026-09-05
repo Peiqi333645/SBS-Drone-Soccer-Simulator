@@ -7,9 +7,12 @@ func _process(_delta: float) -> void:
 
 func _draw() -> void:
 	draw_style_box(_panel_style(), Rect2(Vector2.ZERO, size))
-	var half: float = size.x * 0.5
-	_draw_stick(Rect2(10, 24, half - 20, size.y - 34), InputProfile.value(&"yaw"), -InputProfile.value(&"throttle"), "偏航 / 油门")
-	_draw_stick(Rect2(half + 10, 24, half - 20, size.y - 34), InputProfile.value(&"roll"), -InputProfile.value(&"pitch"), "横滚 / 俯仰")
+	var stick_side := minf((size.x - 34.0) * 0.5, size.y - 48.0)
+	var total_width := stick_side * 2.0 + 14.0
+	var start_x := (size.x - total_width) * 0.5
+	var start_y := 34.0 + maxf(0.0, (size.y - 42.0 - stick_side) * 0.5)
+	_draw_stick(Rect2(start_x, start_y, stick_side, stick_side), InputProfile.value(&"yaw"), -InputProfile.value(&"throttle"), "偏航 / 油门")
+	_draw_stick(Rect2(start_x + stick_side + 14.0, start_y, stick_side, stick_side), InputProfile.value(&"roll"), -InputProfile.value(&"pitch"), "横滚 / 俯仰")
 	var status := "%s  ·  %s  ·  %.2fx" % [InputProfile.flight_mode, InputProfile.camera_mode, InputProfile.slow_motion]
 	draw_string(ThemeDB.fallback_font, Vector2(10, 17), status, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("ffd46a"))
 
@@ -22,7 +25,7 @@ func _draw_stick(rect: Rect2, x_value: float, y_value: float, caption: String) -
 	draw_circle(point, 13.0, Color(1.0, 0.72, 0.08, 0.12))
 	draw_circle(point, 7.0, Color("ffc21a"))
 	draw_circle(point, 8.5, Color("fff0b0"), false, 1.5, true)
-	draw_string(ThemeDB.fallback_font, rect.position + Vector2(6, 16), caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("a8b6bf"))
+	draw_string(ThemeDB.fallback_font, rect.position + Vector2(0, -7), caption, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 12, Color("b8c0c5"))
 
 func _panel_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()

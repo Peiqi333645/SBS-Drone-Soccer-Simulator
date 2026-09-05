@@ -83,8 +83,8 @@ func _flush_decorations() -> void:
 
 func _build_floor() -> void:
 	# Large open terrain prevents the camera from looking into a black void.
-	_box(self, "OpenGround", Vector3(0, -0.38, 0), Vector3(RUNOFF_W, 0.6, RUNOFF_L), Color("5e8546"))
-	var field := _box(self, "Field", Vector3(0, -0.06, 0), Vector3(FIELD_W, 0.08, FIELD_L), Color("285b4d"))
+	_box(self, "OpenGround", Vector3(0, -0.38, 0), Vector3(RUNOFF_W, 0.6, RUNOFF_L), Color("536348"))
+	var field := _box(self, "Field", Vector3(0, -0.06, 0), Vector3(FIELD_W, 0.08, FIELD_L), Color("294b38"))
 	# A single reusable procedural texture adds turf detail without geometry or
 	# extra draw calls, keeping the stadium suitable for integrated graphics.
 	var field_mesh := field.get_child(0) as MeshInstance3D
@@ -105,7 +105,7 @@ func _build_floor() -> void:
 	var strip_count := 26 if int(InputProfile.graphics.get("quality", 1)) >= 2 else 16
 	var strip_length := FIELD_L / float(strip_count)
 	for i in strip_count:
-		var strip_color := Color("34705d") if i % 2 == 0 else Color("2f6756")
+		var strip_color := Color("315944") if i % 2 == 0 else Color("2b513e")
 		var strip_z := -FIELD_L * 0.5 + strip_length * (float(i) + 0.5)
 		_box(self, "TurfStrip_%02d" % i, Vector3(0, -0.014, strip_z), Vector3(FIELD_W - 0.24, 0.012, strip_length - 0.035), strip_color, false)
 	# A pale outer apron makes the playable area readable without enclosing walls.
@@ -198,7 +198,7 @@ func _build_stadium() -> void:
 	# poly construction keeps the scene fast enough for a stable 400 Hz sim.
 	var concrete := Color("3b383b")
 	var fascia := Color("17151b")
-	var seat_colors := [Color("ff385f"), Color("f08a25"), Color("743fc4"), Color("20c98a")]
+	var seat_colors := [Color("a93d46"), Color("b87832"), Color("51486f"), Color("37745f")]
 	var quality := int(InputProfile.graphics.get("quality", 1))
 	var tier_count := 1 if quality == 0 else (2 if quality == 1 else 3)
 	var seat_step := 10.0 if quality == 0 else (7.5 if quality == 1 else 5.0)

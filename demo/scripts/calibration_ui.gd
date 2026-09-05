@@ -177,7 +177,7 @@ func _controller_page() -> VBoxContainer:
 	state_title.add_theme_font_size_override("font_size", 24)
 	right.add_child(state_title)
 	monitor = preload("res://demo/scripts/controller_monitor.gd").new()
-	monitor.custom_minimum_size = Vector2(430, 330)
+	monitor.custom_minimum_size = Vector2(430, 255)
 	right.add_child(monitor)
 	var switch_grid := GridContainer.new()
 	switch_grid.columns = 2
@@ -495,7 +495,7 @@ func _physics_page() -> VBoxContainer:
 	var page := _page("物理")
 	var body := _content(page)
 	var help := Label.new()
-	help.text = "KV 决定电机响应速度，最大输出只限制动力上限，两者互不替代。推荐从 420 g / 2300 KV / 4S 开始。"
+	help.text = "电机响应速度与最大输出分别计算。推荐从 420 g / 2700 KV / 56% 输出开始，再按机型微调。"
 	help.add_theme_font_size_override("font_size", 20)
 	body.add_child(help)
 	var physics_grid := GridContainer.new()
@@ -516,9 +516,9 @@ func _physics_page() -> VBoxContainer:
 	_add_section_title(body, "预设")
 	var presets := HBoxContainer.new()
 	body.add_child(presets)
-	_add_physics_preset(presets, "稳定足球机 420g", 0.42, 2300.0, 1.0, 0.62)
-	_add_physics_preset(presets, "灵活竞速 650g", 0.65, 2450.0, 1.05, 0.72)
-	_add_physics_preset(presets, "训练柔和 500g", 0.50, 2100.0, 0.95, 0.54)
+	_add_physics_preset(presets, "足球机 420 g", 0.42, 2700.0, 1.0, 0.56)
+	_add_physics_preset(presets, "竞速机 650 g", 0.65, 2450.0, 1.05, 0.66)
+	_add_physics_preset(presets, "训练机 500 g", 0.50, 2200.0, 0.95, 0.50)
 	return page
 
 func _graphics_page() -> VBoxContainer:
@@ -931,6 +931,8 @@ func _reference_theme() -> Theme:
 	theme.set_color("font_color", "SpinBox", Color("f2c800"))
 	theme.set_font_size("font_size", "Label", 16)
 	theme.set_font_size("font_size", "Button", 16)
+	theme.set_constant("separation", "VBoxContainer", 12)
+	theme.set_constant("separation", "HBoxContainer", 12)
 	return theme
 
 var full_calibration_queue: Array[int] = []

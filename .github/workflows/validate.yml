@@ -62,7 +62,17 @@ jobs:
           test -f gdextension/drone_sim.gdextension
           test -f gdextension/bin/libdrone_sim.macos.release.universal.dylib
           mkdir -p package/SBS-Drone-Soccer-Simulator-Godot-4.7
-          rsync -a             --exclude '.git'             --exclude '.github'             --exclude '.godot'             --exclude 'build'             --exclude 'package'             ./ package/SBS-Drone-Soccer-Simulator-Godot-4.7/
+          rsync -a \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude '.godot' \
+            --exclude 'build' \
+            --exclude 'build-*' \
+            --exclude 'package' \
+            --exclude 'dist' \
+            ./ package/SBS-Drone-Soccer-Simulator-Godot-4.7/
+          test ! -e package/SBS-Drone-Soccer-Simulator-Godot-4.7/build-editor
+          test ! -e package/SBS-Drone-Soccer-Simulator-Godot-4.7/build-check
           ditto -c -k --sequesterRsrc --keepParent             package/SBS-Drone-Soccer-Simulator-Godot-4.7             SBS-Drone-Soccer-Simulator-Godot-4.7-macOS.zip
 
       - name: Upload Godot editor project
@@ -107,29 +117,29 @@ jobs:
           test -f gdextension/bin/libdrone_sim.macos.release.universal.dylib
           find gdextension/bin -maxdepth 2 -type f -print
 
-      - name: Install Godot 4.3 and export templates
+      - name: Install Godot 4.7.1 and export templates
         shell: bash
         run: |
           curl --fail --location --retry 3 \
             --output /tmp/godot.zip \
-            https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
+            https://github.com/godotengine/godot/releases/download/4.7.1-stable/Godot_v4.7.1-stable_linux.x86_64.zip
           unzip -q /tmp/godot.zip -d /tmp/godot
-          chmod +x /tmp/godot/Godot_v4.3-stable_linux.x86_64
+          chmod +x /tmp/godot/Godot_v4.7.1-stable_linux.x86_64
 
           curl --fail --location --retry 3 \
             --output /tmp/export_templates.tpz \
-            https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz
+            https://github.com/godotengine/godot/releases/download/4.7.1-stable/Godot_v4.7.1-stable_export_templates.tpz
           mkdir -p /tmp/godot-templates
           unzip -q /tmp/export_templates.tpz -d /tmp/godot-templates
-          mkdir -p "${HOME}/.local/share/godot/export_templates/4.3.stable"
+          mkdir -p "${HOME}/.local/share/godot/export_templates/4.7.1.stable"
           cp -R /tmp/godot-templates/templates/. \
-            "${HOME}/.local/share/godot/export_templates/4.3.stable/"
+            "${HOME}/.local/share/godot/export_templates/4.7.1.stable/"
 
       - name: Export playable game
         shell: bash
         run: |
           mkdir -p "$(dirname "${{ matrix.output }}")"
-          /tmp/godot/Godot_v4.3-stable_linux.x86_64 \
+          /tmp/godot/Godot_v4.7.1-stable_linux.x86_64 \
             --headless \
             --path . \
             --export-release "${{ matrix.preset }}" \

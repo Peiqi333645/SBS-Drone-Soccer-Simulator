@@ -27,9 +27,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DDRONE_SIM_TESTS=ON
       - name: Build physics extension
         run: cmake --build build --config Release --parallel 2
+      - name: Run core regression tests
+        run: ctest --test-dir build -C Release --output-on-failure
       - name: Upload extension
         uses: actions/upload-artifact@v4
         with:

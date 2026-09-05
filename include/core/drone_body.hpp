@@ -100,6 +100,10 @@ public:
 
     void   set_max_voltage(double v);
     double get_max_voltage() const;
+    void   set_motor_arm_length(double v);
+    double get_motor_arm_length() const;
+    void   set_motor_output_limit(double v);
+    double get_motor_output_limit() const;
 
     void   set_turbulence_intensity(double i);
     double get_turbulence_intensity() const;
@@ -187,7 +191,9 @@ private:
     TelemetryFrame              _telem{};
 
     // Config cache (editor properties)
-    double _rotor_radius{0.127};
+    double _rotor_radius{0.0635};
+    double _motor_arm_length{0.110};
+    double _motor_output_limit{1.0};
     int    _n_rotors{4};
     double _motor_kv{920.0};
     double _max_voltage{14.8};

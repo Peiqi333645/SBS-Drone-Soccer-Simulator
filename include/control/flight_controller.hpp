@@ -1,6 +1,8 @@
 #pragma once
 #include "core/math_types.hpp"
 #include <array>
+#include <utility>
+#include <vector>
 
 namespace dronesim {
 
@@ -139,16 +141,26 @@ public:
     [[nodiscard]] std::vector<double> mix(
         double thrust_n, double roll_n, double pitch_n, double yaw_n
     ) const noexcept {
-        std::vector<double> out(_mix.size());
+        thrust_n = clamp(thrust_n, 0.0, 1.0);
+        std::vector<double> correction(_mix.size());
+        double max_positive = 0.0;
+        double max_negative = 0.0;
         for (size_t i = 0; i < _mix.size(); ++i) {
             const auto& r = _mix[i];
-            out[i] = r[0]*thrust_n + r[1]*roll_n + r[2]*pitch_n + r[3]*yaw_n;
+            correction[i] = r[1]*roll_n + r[2]*pitch_n + r[3]*yaw_n;
+            max_positive = std::max(max_positive, correction[i]);
+            max_negative = std::min(max_negative, correction[i]);
         }
-        // Normalise so max is 1, then rescale all proportionally
-        double mx = 0;
-        for (double v : out) mx = std::max(mx, std::abs(v));
-        if (mx > 1.0) for (double& v : out) v /= mx;
-        for (double& v : out) v = clamp(v, 0.0, 1.0);
+        double correction_scale = 1.0;
+        if (max_positive > 1e-9)
+            correction_scale = std::min(correction_scale, (1.0 - thrust_n) / max_positive);
+        if (max_negative < -1e-9)
+            correction_scale = std::min(correction_scale, thrust_n / -max_negative);
+        correction_scale = clamp(correction_scale, 0.0, 1.0);
+
+        std::vector<double> out(_mix.size());
+        for (size_t i = 0; i < _mix.size(); ++i)
+            out[i] = clamp(_mix[i][0] * thrust_n + correction[i] * correction_scale, 0.0, 1.0);
         return out;
     }
 

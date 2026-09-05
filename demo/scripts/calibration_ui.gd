@@ -276,8 +276,8 @@ func _rate_page() -> VBoxContainer:
 	type_label.custom_minimum_size.x = 120
 	type_row.add_child(type_label)
 	var type_choice := OptionButton.new()
-	for rate_name in ["Actual", "Betaflight", "Raceflight", "KISS"]: type_choice.add_item(rate_name)
-	type_choice.select(["Actual", "Betaflight", "Raceflight", "KISS"].find(InputProfile.rate_type))
+	for rate_name in ["Actual", "Betaflight"]: type_choice.add_item(rate_name)
+	type_choice.select(maxi(0, ["Actual", "Betaflight"].find(InputProfile.rate_type)))
 	type_choice.item_selected.connect(_rate_type_changed.bind(type_choice))
 	type_row.add_child(type_choice)
 	var split := HBoxContainer.new()
@@ -413,7 +413,7 @@ func _basic_page() -> VBoxContainer:
 	rate_label.custom_minimum_size.x = 125
 	rate_top.add_child(rate_label)
 	var type_choice := OptionButton.new()
-	var rate_names := ["Actual", "Betaflight", "Raceflight", "KISS"]
+	var rate_names := ["Actual", "Betaflight"]
 	for rate_name in rate_names: type_choice.add_item(rate_name)
 	type_choice.select(maxi(0, rate_names.find(InputProfile.rate_type)))
 	type_choice.item_selected.connect(_rate_type_index_changed.bind(rate_names))
@@ -495,31 +495,37 @@ func _physics_page() -> VBoxContainer:
 	var page := _page("物理")
 	var body := _content(page)
 	var help := Label.new()
-	help.text = "电机响应速度与最大输出分别计算。推荐从 420 g / 2700 KV / 56% 输出开始，再按机型微调。"
+	help.text = "先选择真实机型预设。桨径、轴距、质量、惯量、电机和电池会作为一组同时切换；默认环境使用真实 1 g。"
 	help.add_theme_font_size_override("font_size", 20)
 	body.add_child(help)
+	var airframe_choice := OptionButton.new()
+	var airframe_ids := ["1inch", "2_5inch", "3inch", "5inch"]
+	for id in airframe_ids:
+		airframe_choice.add_item(String(InputProfile.AIRFRAMES[id].name))
+		airframe_choice.set_item_metadata(airframe_choice.item_count - 1, id)
+		if id == InputProfile.airframe_id: airframe_choice.select(airframe_choice.item_count - 1)
+	airframe_choice.item_selected.connect(_airframe_profile_changed.bind(airframe_choice))
+	body.add_child(airframe_choice)
 	var physics_grid := GridContainer.new()
 	physics_grid.columns = 2
 	physics_grid.add_theme_constant_override("h_separation", 12)
 	physics_grid.add_theme_constant_override("v_separation", 10)
 	body.add_child(physics_grid)
-	_add_profile_slider(physics_grid, "机体重量", "physics", "mass", 0.20, 1.50, float(InputProfile.physics.mass), " kg")
+	_add_profile_slider(physics_grid, "机体重量", "physics", "mass", 0.015, 1.50, float(InputProfile.physics.mass), " kg")
 	_add_profile_slider(physics_grid, "重力倍率", "physics", "gravity", 0.80, 1.60, float(InputProfile.physics.gravity), " x")
 	_add_profile_slider(physics_grid, "总推力倍率", "physics", "thrust", 0.50, 1.80, float(InputProfile.physics.thrust), " x")
 	_add_profile_slider(physics_grid, "低速阻力", "physics", "drag_low", 0.0, 0.20, float(InputProfile.physics.drag_low), "")
 	_add_profile_slider(physics_grid, "高速阻力", "physics", "drag_high", 0.02, 0.60, float(InputProfile.physics.drag_high), "")
 	_add_profile_slider(physics_grid, "空气乱流", "physics", "turbulence", 0.0, 2.0, float(InputProfile.physics.turbulence), "")
-	_add_profile_slider(physics_grid, "电机 KV", "physics", "motor_kv", 1200.0, 4200.0, float(InputProfile.physics.motor_kv), " KV")
-	_add_profile_slider(physics_grid, "电池电压", "physics", "voltage", 7.4, 25.2, float(InputProfile.physics.voltage), " V")
+	_add_profile_slider(physics_grid, "电机 KV", "physics", "motor_kv", 1000.0, 30000.0, float(InputProfile.physics.motor_kv), " KV")
+	_add_profile_slider(physics_grid, "电池电压", "physics", "voltage", 3.0, 26.1, float(InputProfile.physics.voltage), " V")
 	_add_profile_slider(physics_grid, "慢动作倍率", "general", "slow_motion", 0.2, 1.0, InputProfile.slow_motion, " x")
 	_add_profile_slider(physics_grid, "电机最大输出", "output", "motor_output_limit", 0.30, 1.0, InputProfile.motor_output_limit, "")
-	_add_section_title(body, "预设")
-	var presets := HBoxContainer.new()
-	body.add_child(presets)
-	_add_physics_preset(presets, "足球机 420 g", 0.42, 2700.0, 1.0, 0.56)
-	_add_physics_preset(presets, "竞速机 650 g", 0.65, 2450.0, 1.05, 0.66)
-	_add_physics_preset(presets, "训练机 500 g", 0.50, 2200.0, 0.95, 0.50)
 	return page
+
+func _airframe_profile_changed(index: int, choice: OptionButton) -> void:
+	InputProfile.set_airframe(String(choice.get_item_metadata(index)))
+	hint.text = "机型已切换；重新打开物理页可查看该机型完整参数。"
 
 func _graphics_page() -> VBoxContainer:
 	var page := _page("画质与 OSD")

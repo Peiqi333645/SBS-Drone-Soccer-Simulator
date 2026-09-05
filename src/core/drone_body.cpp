@@ -21,8 +21,6 @@ DroneBody::DroneBody() {
 
 void DroneBody::_ready() {
     _rebuild_rotors();
-    // Match RigidBody3D mass to our sim mass
-    set_mass(static_cast<real_t>(1.5));
     // Disable Godot's built-in gravity — we handle it ourselves
     set_gravity_scale(0.0);
     // Enable continuous collision detection for small-body accuracy
@@ -116,6 +114,8 @@ void DroneBody::_integrate_forces(PhysicsDirectBodyState3D* gstate) {
     } else {
         throttles.assign(_rotors->size(), 0.0);
     }
+    for (double& motor : throttles)
+        motor = clamp(motor, 0.0, _motor_output_limit);
     _rotors->set_throttles(throttles);
 
     // ---- Rotor aerodynamics (body frame) ------------------------------------
@@ -258,7 +258,7 @@ void DroneBody::_build_quad_x_layout() {
     // firmware channels map 1:1 onto rotors:
     //   M1 front-right CCW, M2 back-left CCW, M3 front-left CW, M4 back-right CW
     // Godot body axes: front = -Z, right = +X; spin_dir +1 = CCW from above.
-    const double arm = _rotor_radius * 2.1;  // arm length heuristic
+    const double arm = _motor_arm_length / std::sqrt(2.0);
     struct MotorPlacement { double x; double z; int dir; };
     const MotorPlacement layout[4] = {
         {  arm, -arm, +1 },  // M1 front-right CCW
@@ -269,6 +269,8 @@ void DroneBody::_build_quad_x_layout() {
     for (auto& p : layout) {
         RotorConfig cfg;
         cfg.radius    = _rotor_radius;
+        cfg.chord     = _rotor_radius * 0.18;
+        cfg.hub_radius = _rotor_radius * 0.12;
         cfg.motor_kv  = _motor_kv;
         cfg.max_voltage = _max_voltage;
         cfg.position  = { p.x, 0, p.z };
@@ -368,6 +370,14 @@ double DroneBody::get_motor_kv() const         { return _motor_kv; }
 void   DroneBody::set_max_voltage(double v)    { _max_voltage = v; if (is_inside_tree()) _rebuild_rotors(); }
 double DroneBody::get_max_voltage() const      { return _max_voltage; }
 
+void DroneBody::set_motor_arm_length(double v) {
+    _motor_arm_length = clamp(v, 0.02, 0.5);
+    if (is_inside_tree()) _rebuild_rotors();
+}
+double DroneBody::get_motor_arm_length() const { return _motor_arm_length; }
+void DroneBody::set_motor_output_limit(double v) { _motor_output_limit = clamp(v, 0.1, 1.0); }
+double DroneBody::get_motor_output_limit() const { return _motor_output_limit; }
+
 void   DroneBody::set_turbulence_intensity(double i) { _turbulence_intensity = std::max(0.0,i); }
 double DroneBody::get_turbulence_intensity() const   { return _turbulence_intensity; }
 void DroneBody::set_thrust_multiplier(double v) { _thrust_multiplier = clamp(v, 0.25, 2.5); }
@@ -427,7 +437,7 @@ void DroneBody::_bind_methods() {
     // Properties
     ClassDB::bind_method(D_METHOD("set_rotor_radius","r"), &DroneBody::set_rotor_radius);
     ClassDB::bind_method(D_METHOD("get_rotor_radius"),     &DroneBody::get_rotor_radius);
-    ADD_PROPERTY(PropertyInfo(Variant::FLOAT,"rotor_radius",PROPERTY_HINT_RANGE,"0.05,0.5,0.001"),
+    ADD_PROPERTY(PropertyInfo(Variant::FLOAT,"rotor_radius",PROPERTY_HINT_RANGE,"0.005,0.15,0.0001"),
                  "set_rotor_radius","get_rotor_radius");
 
     ClassDB::bind_method(D_METHOD("set_n_rotors","n"), &DroneBody::set_n_rotors);
@@ -437,13 +447,22 @@ void DroneBody::_bind_methods() {
 
     ClassDB::bind_method(D_METHOD("set_motor_kv","kv"), &DroneBody::set_motor_kv);
     ClassDB::bind_method(D_METHOD("get_motor_kv"),      &DroneBody::get_motor_kv);
-    ADD_PROPERTY(PropertyInfo(Variant::FLOAT,"motor_kv",PROPERTY_HINT_RANGE,"100,3000,1"),
+    ADD_PROPERTY(PropertyInfo(Variant::FLOAT,"motor_kv",PROPERTY_HINT_RANGE,"100,30000,1"),
                  "set_motor_kv","get_motor_kv");
 
     ClassDB::bind_method(D_METHOD("set_max_voltage","v"), &DroneBody::set_max_voltage);
     ClassDB::bind_method(D_METHOD("get_max_voltage"),     &DroneBody::get_max_voltage);
-    ADD_PROPERTY(PropertyInfo(Variant::FLOAT,"max_voltage",PROPERTY_HINT_RANGE,"7.4,44.4,0.1"),
+    ADD_PROPERTY(PropertyInfo(Variant::FLOAT,"max_voltage",PROPERTY_HINT_RANGE,"3.0,44.4,0.1"),
                  "set_max_voltage","get_max_voltage");
+
+    ClassDB::bind_method(D_METHOD("set_motor_arm_length","v"), &DroneBody::set_motor_arm_length);
+    ClassDB::bind_method(D_METHOD("get_motor_arm_length"), &DroneBody::get_motor_arm_length);
+    ADD_PROPERTY(PropertyInfo(Variant::FLOAT,"motor_arm_length",PROPERTY_HINT_RANGE,"0.02,0.5,0.001"),
+                 "set_motor_arm_length","get_motor_arm_length");
+    ClassDB::bind_method(D_METHOD("set_motor_output_limit","v"), &DroneBody::set_motor_output_limit);
+    ClassDB::bind_method(D_METHOD("get_motor_output_limit"), &DroneBody::get_motor_output_limit);
+    ADD_PROPERTY(PropertyInfo(Variant::FLOAT,"motor_output_limit",PROPERTY_HINT_RANGE,"0.1,1.0,0.01"),
+                 "set_motor_output_limit","get_motor_output_limit");
 
     ClassDB::bind_method(D_METHOD("set_turbulence_intensity","i"), &DroneBody::set_turbulence_intensity);
     ClassDB::bind_method(D_METHOD("get_turbulence_intensity"),     &DroneBody::get_turbulence_intensity);

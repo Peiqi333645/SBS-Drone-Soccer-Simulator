@@ -36,6 +36,8 @@ option(DRONE_SIM_DETERMINISTIC "Strict FP for reproducible physics" OFF)
 
 set(GODOTCPP_GIT_TAG "10.0.0-rc2" CACHE STRING
     "godot-cpp branch/tag to fetch (match your Godot editor version)")
+set(GODOTCPP_API_VERSION "4.7" CACHE STRING
+    "Godot extension API version used to generate the C++ bindings")
 
 # --------------------------------------------------------------------------
 # godot-cpp: prefer a vendored copy, otherwise fetch it automatically.

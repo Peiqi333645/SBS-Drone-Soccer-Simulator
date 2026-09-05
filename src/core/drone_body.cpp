@@ -99,7 +99,7 @@ void DroneBody::_integrate_forces(PhysicsDirectBodyState3D* gstate) {
         // The former 0.3 gain saturated the mixer on sub-500 g quads and could
         // produce an immediate flip at lift-off. Keep enough authority for
         // crisp FPV rates without turning tiny gyro errors into full output.
-        const double torque_scale = 0.10;
+        const double torque_scale = 0.115;
         // At take-off there is little thrust headroom below the collective.
         // Limit attitude correction to that headroom, avoiding a clipped motor
         // pair and the characteristic instant flip as the skids leave ground.

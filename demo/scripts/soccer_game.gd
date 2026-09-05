@@ -43,7 +43,9 @@ func _ready() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not input_blocked and InputProfile.camera_mode != "FPV":
+	# Only keyboard arrows adjust the camera. Joy axes belong exclusively to
+	# the aircraft and no longer trigger built-in ui_* actions.
+	if event is InputEventKey and not input_blocked and InputProfile.camera_mode != "FPV":
 		if event.is_action_pressed("ui_left"): chase_camera.adjust_view(-12.0, 0.0)
 		elif event.is_action_pressed("ui_right"): chase_camera.adjust_view(12.0, 0.0)
 		elif event.is_action_pressed("ui_up"): chase_camera.adjust_view(0.0, -0.6)
@@ -53,6 +55,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_node("../CalibrationUI").close_ui()
 		else:
 			toggle_pause()
+		get_viewport().set_input_as_handled()
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventJoypadMotion or event is InputEventJoypadButton:
+		# Reserve every radio channel for flight and mapped AUX functions. This
+		# prevents sticks from selecting or pressing HUD/pause menu buttons.
 		get_viewport().set_input_as_handled()
 
 
@@ -398,14 +406,13 @@ func _format_time(seconds: float) -> String:
 
 func _update_los_camera(delta: float) -> void:
 	if not is_instance_valid(drone): return
-	var motion: Vector3 = drone.linear_velocity
-	motion.y = 0.0
-	if motion.length_squared() > 0.5: _los_back = _los_back.lerp(-motion.normalized(), 1.0 - exp(-1.8 * delta)).normalized()
+	# LOS represents a pilot standing at a fixed field position. Do not orbit or
+	# chase when the aircraft changes direction.
 	var distance := float(InputProfile.camera.los_distance)
 	var height := float(InputProfile.camera.los_height)
-	var desired: Vector3 = drone.global_position + _los_back * distance + Vector3.UP * height
-	observer_camera.global_position = observer_camera.global_position.lerp(desired, 1.0 - exp(-7.0 * delta))
-	observer_camera.look_at(drone.global_position + Vector3.UP * 0.15, Vector3.UP)
+	var desired := Vector3(distance, height, distance)
+	observer_camera.global_position = observer_camera.global_position.lerp(desired, 1.0 - exp(-10.0 * delta))
+	observer_camera.look_at(Vector3(0, 2.0, 0), Vector3.UP)
 
 func _apply_osd_visibility() -> void:
 	var show_all := bool(InputProfile.osd.visible)

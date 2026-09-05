@@ -84,7 +84,23 @@ func _flush_decorations() -> void:
 func _build_floor() -> void:
 	# Large open terrain prevents the camera from looking into a black void.
 	_box(self, "OpenGround", Vector3(0, -0.38, 0), Vector3(RUNOFF_W, 0.6, RUNOFF_L), Color("5e8546"))
-	_box(self, "Field", Vector3(0, -0.06, 0), Vector3(FIELD_W, 0.08, FIELD_L), Color("285b4d"))
+	var field := _box(self, "Field", Vector3(0, -0.06, 0), Vector3(FIELD_W, 0.08, FIELD_L), Color("285b4d"))
+	# A single reusable procedural texture adds turf detail without geometry or
+	# extra draw calls, keeping the stadium suitable for integrated graphics.
+	var field_mesh := field.get_child(0) as MeshInstance3D
+	if field_mesh:
+		var turf := FastNoiseLite.new()
+		turf.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+		turf.frequency = 0.075
+		turf.fractal_octaves = 3
+		var turf_texture := NoiseTexture2D.new()
+		turf_texture.width = 512
+		turf_texture.height = 512
+		turf_texture.seamless = true
+		turf_texture.noise = turf
+		var turf_material := field_mesh.material_override as StandardMaterial3D
+		turf_material.albedo_texture = turf_texture
+		turf_material.uv1_scale = Vector3(8.0, 20.0, 1.0)
 	# Alternating low-contrast turf bands add speed and altitude cues without textures.
 	var strip_count := 26 if int(InputProfile.graphics.get("quality", 1)) >= 2 else 16
 	var strip_length := FIELD_L / float(strip_count)

@@ -14,11 +14,14 @@ var value := 0.0:
 		value_changed.emit(value)
 
 var _dragging := false
+var _hovered := false
 
 func _ready() -> void:
-	custom_minimum_size = Vector2(180, 34)
+	custom_minimum_size = Vector2(180, 40)
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	focus_mode = Control.FOCUS_ALL
+	mouse_entered.connect(func(): _hovered = true; queue_redraw())
+	mouse_exited.connect(func(): _hovered = false; queue_redraw())
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
@@ -38,12 +41,18 @@ func _set_from_x(x: float) -> void:
 
 func _draw() -> void:
 	var center_y := size.y * 0.5
-	var start := Vector2(12, center_y)
-	var finish := Vector2(size.x - 12, center_y)
-	draw_line(start, finish, Color("3b3d42"), 6.0, true)
+	var start := Vector2(14, center_y)
+	var finish := Vector2(size.x - 14, center_y)
+	# Layered strokes give the control a recessed track without a costly shader.
+	draw_line(start, finish, Color(0, 0, 0, 0.42), 12.0, true)
+	draw_line(start, finish, Color("343a40"), 8.0, true)
+	draw_line(start + Vector2(0, -1), finish + Vector2(0, -1), Color(0.58, 0.62, 0.65, 0.16), 2.0, true)
 	var ratio := inverse_lerp(min_value, max_value, value)
 	var knob := start.lerp(finish, ratio)
-	draw_line(start, knob, Color("f0ae00"), 6.0, true)
-	draw_circle(knob, 10.0, Color(0.94, 0.68, 0.0, 0.18))
+	draw_line(start, knob, Color("d99500"), 8.0, true)
+	draw_line(start, knob, Color("ffc21a"), 3.0, true)
+	var glow_radius := 15.0 if _hovered or _dragging else 12.0
+	draw_circle(knob, glow_radius, Color(1.0, 0.70, 0.04, 0.14))
+	draw_circle(knob, 9.0, Color("17191d"))
 	draw_circle(knob, 7.0, Color("ffc21a"))
-	draw_circle(knob, 7.0, Color("fff0b0"), false, 1.5, true)
+	draw_circle(knob + Vector2(-2, -2), 2.2, Color(1, 0.94, 0.68, 0.82))

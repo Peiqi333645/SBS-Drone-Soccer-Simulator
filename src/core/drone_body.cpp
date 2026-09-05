@@ -99,12 +99,19 @@ void DroneBody::_integrate_forces(PhysicsDirectBodyState3D* gstate) {
         // The former 0.3 gain saturated the mixer on sub-500 g quads and could
         // produce an immediate flip at lift-off. Keep enough authority for
         // crisp FPV rates without turning tiny gyro errors into full output.
-        const double torque_scale = 0.12;
+        const double torque_scale = 0.10;
+        // At take-off there is little thrust headroom below the collective.
+        // Limit attitude correction to that headroom, avoiding a clipped motor
+        // pair and the characteristic instant flip as the skids leave ground.
+        const double attitude_headroom = std::max(0.015, std::min(thr, 1.0 - thr));
+        const double roll_cmd = clamp(tau_r * torque_scale, -attitude_headroom, attitude_headroom);
+        const double pitch_cmd = clamp(tau_p * torque_scale, -attitude_headroom, attitude_headroom);
+        const double yaw_cmd = clamp(tau_y * torque_scale, -attitude_headroom * 0.55, attitude_headroom * 0.55);
         throttles = _mixer->mix(
             thr,
-            tau_r * torque_scale,
-            tau_p * torque_scale,
-            tau_y * torque_scale
+            roll_cmd,
+            pitch_cmd,
+            yaw_cmd
         );
     } else {
         throttles.assign(_rotors->size(), 0.0);

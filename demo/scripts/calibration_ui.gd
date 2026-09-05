@@ -540,8 +540,17 @@ func _add_physics_preset(parent: Control, caption: String, mass_value: float, kv
 	parent.add_child(button)
 
 func _add_profile_slider(parent: Control, caption: String, group: String, key: String, minimum: float, maximum: float, value: float, suffix: String) -> void:
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", _setting_card_style())
+	parent.add_child(card)
+	var inset := MarginContainer.new()
+	for side in ["margin_left", "margin_right"]: inset.add_theme_constant_override(side, 16)
+	inset.add_theme_constant_override("margin_top", 5)
+	inset.add_theme_constant_override("margin_bottom", 5)
+	card.add_child(inset)
 	var row := HBoxContainer.new()
-	parent.add_child(row)
+	row.add_theme_constant_override("separation", 14)
+	inset.add_child(row)
 	var label := Label.new()
 	label.text = caption
 	label.custom_minimum_size.x = 190
@@ -556,14 +565,26 @@ func _add_profile_slider(parent: Control, caption: String, group: String, key: S
 	var number := Label.new()
 	number.text = "%.2f%s" % [value, suffix]
 	number.custom_minimum_size.x = 100
+	number.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	number.add_theme_color_override("font_color", Color("ffd160"))
 	row.add_child(number)
 	slider.value_changed.connect(_profile_changed.bind(group, key, number, suffix))
 
 func _add_number_input(parent: Control, caption: String, key: String, minimum: float, maximum: float, value: float, suffix: String) -> void:
-	var row := HBoxContainer.new(); row.custom_minimum_size.x = 360; parent.add_child(row)
+	var card := PanelContainer.new(); card.add_theme_stylebox_override("panel", _setting_card_style()); parent.add_child(card)
+	var inset := MarginContainer.new(); inset.add_theme_constant_override("margin_left", 14); inset.add_theme_constant_override("margin_right", 14); inset.add_theme_constant_override("margin_top", 5); inset.add_theme_constant_override("margin_bottom", 5); card.add_child(inset)
+	var row := HBoxContainer.new(); row.custom_minimum_size.x = 360; inset.add_child(row)
 	var label := Label.new(); label.text = caption; label.custom_minimum_size.x = 150; row.add_child(label)
 	var input := SpinBox.new(); input.min_value = minimum; input.max_value = maximum; input.step = 0.1; input.value = value; input.suffix = suffix; input.custom_minimum_size = Vector2(170, 42); row.add_child(input)
 	input.value_changed.connect(_camera_number_changed.bind(key))
+
+func _setting_card_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.105, 0.11, 0.122, 0.88)
+	style.border_color = Color(0.32, 0.33, 0.35, 0.62)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(11)
+	return style
 
 func _camera_number_changed(value: float, key: String) -> void:
 	InputProfile.set_camera_value(key, value)
@@ -831,6 +852,17 @@ func _reference_theme() -> Theme:
 	var pressed_style := hover_style.duplicate() as StyleBoxFlat
 	pressed_style.bg_color = Color("b88400")
 	theme.set_stylebox("pressed", "Button", pressed_style)
+	var field_style := StyleBoxFlat.new()
+	field_style.bg_color = Color("17191d")
+	field_style.border_color = Color("45484e")
+	field_style.set_border_width_all(1)
+	field_style.set_corner_radius_all(9)
+	field_style.content_margin_left = 12
+	field_style.content_margin_right = 12
+	field_style.content_margin_top = 8
+	field_style.content_margin_bottom = 8
+	theme.set_stylebox("normal", "LineEdit", field_style)
+	theme.set_stylebox("normal", "OptionButton", field_style)
 	var tab_selected := StyleBoxFlat.new()
 	tab_selected.bg_color = Color("24262a")
 	tab_selected.border_color = Color("f2b705")

@@ -40,7 +40,11 @@ func _process(delta: float) -> void:
 		disarm()
 		return
 	var throttle: float = clampf((InputProfile.value(&"throttle") + 1.0) * 0.5, 0.0, 1.0)
-	var response: float = 1.0 - exp(-120.0 * delta)
+	# Treat the bottom 2.5% as an explicit motor cut. HID jitter can no longer
+	# turn into lift, while the remaining travel retains immediate response.
+	if throttle < 0.025: throttle = 0.0
+	else: throttle = inverse_lerp(0.025, 1.0, throttle)
+	var response: float = 1.0 - exp(-180.0 * delta)
 	throttle_smoothed = lerpf(throttle_smoothed, _throttle_curve(throttle), response)
 	# Zero stick is true zero thrust. Idle no longer causes an unexplained lift.
 	if throttle <= 0.001:
@@ -49,7 +53,7 @@ func _process(delta: float) -> void:
 		throttle_smoothed = maxf(throttle_smoothed, InputProfile.motor_idle * InputProfile.motor_output_limit)
 	# 65 Hz command response keeps the radio connected to the craft without
 	# injecting single-frame HID noise. This feels like an FC, not a camera rig.
-	var input_response: float = 1.0 - exp(-65.0 * delta)
+	var input_response: float = 1.0 - exp(-110.0 * delta)
 	roll_filtered = lerpf(roll_filtered, InputProfile.value(&"roll"), input_response)
 	pitch_filtered = lerpf(pitch_filtered, InputProfile.value(&"pitch"), input_response)
 	yaw_filtered = lerpf(yaw_filtered, InputProfile.value(&"yaw"), input_response)

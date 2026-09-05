@@ -98,7 +98,7 @@ func _build_hud() -> void:
 
 	var score_card := PanelContainer.new()
 	score_card.custom_minimum_size = Vector2(340, 82)
-	score_card.add_theme_stylebox_override("panel", _panel_style(Color(0.025, 0.055, 0.075, 0.88), Color(0.20, 0.65, 0.90, 0.55), 16))
+	score_card.add_theme_stylebox_override("panel", _panel_style(Color(0.018, 0.024, 0.032, 0.88), Color(0.95, 0.69, 0.08, 0.42), 16))
 	top_row.add_child(score_card)
 	var score_margin := MarginContainer.new()
 	score_margin.add_theme_constant_override("margin_left", 22)
@@ -111,7 +111,7 @@ func _build_hud() -> void:
 	var score_caption := Label.new()
 	score_caption.text = "开放训练场  ·  SCORE"
 	score_caption.add_theme_font_size_override("font_size", 13)
-	score_caption.add_theme_color_override("font_color", Color("8acfe8"))
+	score_caption.add_theme_color_override("font_color", Color("d7a934"))
 	score_column.add_child(score_caption)
 	_score_label = Label.new()
 	_score_label.add_theme_font_size_override("font_size", 27)
@@ -125,7 +125,7 @@ func _build_hud() -> void:
 
 	var flight_card := PanelContainer.new()
 	flight_card.custom_minimum_size = Vector2(420, 82)
-	flight_card.add_theme_stylebox_override("panel", _panel_style(Color(0.025, 0.055, 0.075, 0.88), Color(1.0, 0.75, 0.25, 0.45), 16))
+	flight_card.add_theme_stylebox_override("panel", _panel_style(Color(0.018, 0.024, 0.032, 0.88), Color(0.95, 0.69, 0.08, 0.42), 16))
 	top_row.add_child(flight_card)
 	var flight_margin := MarginContainer.new()
 	flight_margin.add_theme_constant_override("margin_left", 20)
@@ -176,7 +176,7 @@ func _build_hud() -> void:
 	status_card.offset_top = -72
 	status_card.offset_right = -24
 	status_card.offset_bottom = -20
-	status_card.add_theme_stylebox_override("panel", _panel_style(Color(0.025, 0.055, 0.075, 0.84), Color(0.35, 0.75, 0.82, 0.32), 14))
+	status_card.add_theme_stylebox_override("panel", _panel_style(Color(0.018, 0.024, 0.032, 0.84), Color(0.95, 0.69, 0.08, 0.30), 14))
 	layer.add_child(status_card)
 	var status_margin := MarginContainer.new()
 	status_margin.add_theme_constant_override("margin_left", 20)
@@ -189,7 +189,7 @@ func _build_hud() -> void:
 	status_margin.add_child(bottom_row)
 	_status_label = Label.new()
 	_status_label.add_theme_font_size_override("font_size", 17)
-	_status_label.add_theme_color_override("font_color", Color("bcecff"))
+	_status_label.add_theme_color_override("font_color", Color("ffe08a"))
 	bottom_row.add_child(_status_label)
 	var help := Label.new()
 	help.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -262,6 +262,7 @@ func _build_pause_menu(layer: CanvasLayer) -> void:
 	shade.visible = false
 	layer.add_child(shade)
 	_pause_panel = PanelContainer.new()
+	_pause_panel.add_theme_stylebox_override("panel", _panel_style(Color(0.025, 0.028, 0.034, 0.98), Color(0.95, 0.69, 0.08, 0.55), 18))
 	_pause_panel.set_anchors_preset(Control.PRESET_CENTER)
 	_pause_panel.position = Vector2(-230, -280)
 	_pause_panel.size = Vector2(460, 560)
@@ -297,6 +298,9 @@ func _menu_button(text_value: String, callback: Callable) -> Button:
 	button.text = text_value
 	button.custom_minimum_size.y = 55
 	button.add_theme_font_size_override("font_size", 20)
+	button.add_theme_stylebox_override("normal", _button_style(Color("25282d")))
+	button.add_theme_stylebox_override("hover", _button_style(Color("b98500")))
+	button.add_theme_stylebox_override("pressed", _button_style(Color("8f6800")))
 	button.pressed.connect(callback)
 	return button
 

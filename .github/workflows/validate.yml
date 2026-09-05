@@ -92,9 +92,6 @@ jobs:
           - preset: Windows x64
             output: dist/windows/SBS-Drone-Soccer-Simulator.exe
             artifact: SBS-Drone-Soccer-Simulator-Windows-x64
-          - preset: macOS Universal
-            output: dist/macos/SBS-Drone-Soccer-Simulator.zip
-            artifact: SBS-Drone-Soccer-Simulator-macOS-Universal
     steps:
       - uses: actions/checkout@v4
 
@@ -150,4 +147,62 @@ jobs:
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.output }}
+          if-no-files-found: error
+
+  export-macos-game:
+    name: Export and sign macOS Universal game
+    needs: build-extension
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download compiled physics extensions
+        uses: actions/download-artifact@v4
+        with:
+          pattern: drone-soccer-extension-*
+          path: gdextension/bin
+          merge-multiple: true
+
+      - name: Install Godot 4.7.1 and export templates
+        shell: bash
+        run: |
+          curl --fail --location --retry 3 \
+            --output /tmp/godot-macos.zip \
+            https://github.com/godotengine/godot/releases/download/4.7.1-stable/Godot_v4.7.1-stable_macos.universal.zip
+          ditto -x -k /tmp/godot-macos.zip /tmp/godot-macos
+
+          curl --fail --location --retry 3 \
+            --output /tmp/export_templates.tpz \
+            https://github.com/godotengine/godot/releases/download/4.7.1-stable/Godot_v4.7.1-stable_export_templates.tpz
+          mkdir -p /tmp/godot-templates
+          unzip -q /tmp/export_templates.tpz -d /tmp/godot-templates
+          template_dir="${HOME}/Library/Application Support/Godot/export_templates/4.7.1.stable"
+          mkdir -p "$template_dir"
+          cp -R /tmp/godot-templates/templates/. "$template_dir/"
+
+      - name: Export, normalize permissions, and ad-hoc sign
+        shell: bash
+        run: |
+          mkdir -p dist/macos /tmp/exported-game
+          /tmp/godot-macos/Godot.app/Contents/MacOS/Godot \
+            --headless \
+            --path . \
+            --export-release "macOS Universal" \
+            dist/macos/unsigned.zip
+          ditto -x -k dist/macos/unsigned.zip /tmp/exported-game
+          app_path="$(find /tmp/exported-game -maxdepth 1 -type d -name '*.app' -print -quit)"
+          test -n "$app_path"
+          chmod +x "$app_path/Contents/MacOS/"*
+          codesign --force --deep --sign - "$app_path"
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+          rm dist/macos/unsigned.zip
+          ditto -c -k --sequesterRsrc --keepParent \
+            "$app_path" \
+            dist/macos/SBS-Drone-Soccer-Simulator.zip
+
+      - name: Upload signed playable game
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBS-Drone-Soccer-Simulator-macOS-Universal
+          path: dist/macos/SBS-Drone-Soccer-Simulator.zip
           if-no-files-found: error
